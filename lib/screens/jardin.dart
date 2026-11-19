@@ -82,7 +82,7 @@ class _JardinScreenState extends State<JardinScreen> {
                             color: Colors.white.withValues(alpha: 0.4),
                             border: Border.all(color: e.onSurface, width: 2),
                           ),
-                          child: const Text('🐶', style: TextStyle(fontSize: 40)),
+                          child: Text(estado.mascota, style: const TextStyle(fontSize: 40)),
                         ),
                       ),
                     ),
@@ -93,7 +93,11 @@ class _JardinScreenState extends State<JardinScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(_texto, textAlign: TextAlign.center, style: TextStyle(color: e.onSurfaceVariant)),
+        Text(
+          '${estado.mascotaNombre} dice: $_texto',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: e.onSurfaceVariant),
+        ),
         const SizedBox(height: 14),
         Tarjeta(
           child: Column(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/animo_sheet.dart';
 import 'screens/inicio.dart';
 import 'screens/jardin.dart';
+import 'screens/mas.dart';
 import 'screens/rachas.dart';
 import 'screens/sos.dart';
 import 'services/almacen.dart';
@@ -51,7 +52,7 @@ class Principal extends StatefulWidget {
 }
 
 class _PrincipalState extends State<Principal> with WidgetsBindingObserver {
-  static const _sos = 3;
+  static const _sos = 4;
   int _pestana = 0;
   bool _preguntando = false;
 
@@ -96,6 +97,7 @@ class _PrincipalState extends State<Principal> with WidgetsBindingObserver {
       0 => InicioScreen(irASos: () => _ir(_sos)),
       1 => const JardinScreen(),
       2 => const RachasScreen(),
+      3 => const MasScreen(),
       _ => SosScreen(irAInicio: () => _ir(0)),
     };
     return Scaffold(
@@ -128,6 +130,7 @@ class _PrincipalState extends State<Principal> with WidgetsBindingObserver {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Inicio'),
           NavigationDestination(icon: Icon(Icons.park_outlined), selectedIcon: Icon(Icons.park), label: 'Jardín'),
           NavigationDestination(icon: Icon(Icons.local_fire_department_outlined), selectedIcon: Icon(Icons.local_fire_department), label: 'Rachas'),
+          NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Más'),
           NavigationDestination(icon: Icon(Icons.sos_outlined), selectedIcon: Icon(Icons.sos), label: 'S.O.S'),
         ],
       ),

@@ -34,15 +34,26 @@ class CatalogoMicroactividades {
 /// (CU-13, flujo A4). Disponible sin conexión (RNF-03).
 const List<RecursoAyuda> recursosAyuda = [
   RecursoAyuda(
+    id: 'r-911',
     nombre: 'Emergencias 911',
     telefono: '911',
     descripcion: 'Si tú o alguien más está en peligro ahora',
     esEmergencia: true,
+    categoria: 'Emergencia',
   ),
   RecursoAyuda(
+    id: 'r-vida',
     nombre: 'Línea de la Vida',
     telefono: '8009112000',
     descripcion: 'Atención psicológica gratuita, 24 horas · 800 911 2000',
+    categoria: 'Apoyo psicológico',
+  ),
+  RecursoAyuda(
+    id: 'r-salud',
+    nombre: 'Servicio de Salud Mental (SSM)',
+    telefono: '8005019000',
+    descripcion: 'Orientación y servicios de salud mental en México',
+    categoria: 'Apoyo psicológico',
   ),
 ];
 
@@ -57,4 +68,48 @@ const List<String> frasesMotivacionales = [
   'Hoy estás haciendo lo mejor que puedes 💛',
   'Descansar también cuenta 🌙',
   'Qué bueno que sigues aquí ✨',
+];
+
+/// Mensajes validados que alimentan CU-12 y que CU-19 puede administrar.
+const List<MensajeValidado> mensajesPorDefecto = [
+  MensajeValidado(
+    id: 'msg-1',
+    texto: 'Un paso pequeño sigue siendo avanzar 🌱',
+    categoria: 'Aliento',
+    validadoPor: 'Equipo Brota',
+  ),
+  MensajeValidado(
+    id: 'msg-2',
+    texto: 'Descansar también cuenta. Tu progreso sigue aquí 🌙',
+    categoria: 'Descanso',
+    validadoPor: 'Equipo Brota',
+  ),
+  MensajeValidado(
+    id: 'msg-3',
+    texto: 'No tienes que hacerlo perfecto, solo empezar 💛',
+    categoria: 'Aliento',
+    validadoPor: 'Equipo Brota',
+  ),
+  MensajeValidado(
+    id: 'msg-4',
+    texto: 'Pedir ayuda es un acto de valentía, no de debilidad ✨',
+    categoria: 'Ayuda',
+    validadoPor: 'Equipo Brota',
+  ),
+];
+
+/// Publicaciones anónimas semilla del muro de aliento (CU-14).
+const List<Publicacion> publicacionesPorDefecto = [
+  Publicacion(
+    id: 'pub-1',
+    contenido: 'Hoy solo tomé agua y salí a la ventana. Eso ya es mucho 🌱',
+    fecha: '2026-11-10',
+    autor: 'Alguien que también sigue',
+  ),
+  Publicacion(
+    id: 'pub-2',
+    contenido: 'Volví después de dos días de descanso. Gracias por no castigarme 💛',
+    fecha: '2026-11-11',
+    autor: 'Alguien que también sigue',
+  ),
 ];
