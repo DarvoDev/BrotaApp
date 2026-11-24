@@ -13,6 +13,8 @@ import 'perfil.dart';
 import 'progreso.dart';
 import 'recordatorios.dart';
 import 'resumen.dart';
+import 'riesgo.dart';
+import 'servidor.dart';
 
 /// Pestaña «Más»: puerta de entrada al resto de casos de uso (CU-01 a CU-19).
 class MasScreen extends StatelessWidget {
@@ -23,10 +25,10 @@ class MasScreen extends StatelessWidget {
   }
 
   Future<void> _sincronizar(BuildContext context, BrotaState estado) async {
-    await estado.sincronizar();
+    final mensaje = await estado.sincronizar();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Todo está al día en este dispositivo')),
+      SnackBar(content: Text(mensaje)),
     );
   }
 
@@ -54,8 +56,10 @@ class MasScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           estado.hayCambiosPendientes
-                              ? '$pendientes cambio(s) por confirmar'
-                              : 'Todo está al día en este dispositivo',
+                              ? '$pendientes cambio(s) por sincronizar'
+                              : estado.conectado
+                              ? 'Todo está sincronizado'
+                              : 'Todo está guardado en este dispositivo',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -63,8 +67,11 @@ class MasScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tus datos se guardan cifrados aquí. Sincronizar solo confirma '
-                    'los cambios locales: no hay servidor ni copias en la nube.',
+                    estado.conectado
+                        ? 'Tus datos se guardan cifrados aquí y se respaldan en el '
+                              'servidor sin duplicarse, aunque se envíen dos veces.'
+                        : 'Tus datos se guardan cifrados aquí. Si conectas el '
+                              'servidor, los cambios pendientes se envían solos.',
                     style: TextStyle(color: e.onSurfaceVariant, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
@@ -105,6 +112,18 @@ class MasScreen extends StatelessWidget {
                     titulo: 'Resumen semanal',
                     subtitulo: 'Tu semana, sin juicios (CU-16)',
                     alTocar: () => _abrir(context, const ResumenScreen()),
+                  ),
+                  _Entrada(
+                    icono: Icons.psychology_alt_outlined,
+                    titulo: 'Cómo decide Brota',
+                    subtitulo: 'Perceptrón de riesgo y sus pesos (CU-20)',
+                    alTocar: () => _abrir(context, const RiesgoScreen()),
+                  ),
+                  _Entrada(
+                    icono: Icons.cloud_sync_outlined,
+                    titulo: 'Servidor y sincronización',
+                    subtitulo: 'Respaldo opcional sin duplicados (RNF-07)',
+                    alTocar: () => _abrir(context, const ServidorScreen()),
                   ),
                 ],
               ),
@@ -149,13 +168,13 @@ class MasScreen extends StatelessWidget {
                   _Entrada(
                     icono: Icons.people_outline,
                     titulo: 'Comunidad y aliento',
-                    subtitulo: 'Muro anónimo local (CU-14)',
+                    subtitulo: 'Muro anónimo y moderado (CU-14, CU-23)',
                     alTocar: () => _abrir(context, const ComunidadScreen()),
                   ),
                   _Entrada(
                     icono: Icons.admin_panel_settings_outlined,
                     titulo: 'Administración',
-                    subtitulo: 'Catálogo y contenidos (CU-18/CU-19)',
+                    subtitulo: 'Catálogo, contenidos y reportes (CU-18, CU-19, CU-24)',
                     alTocar: () => _abrir(context, AdminScreen()),
                   ),
                 ],

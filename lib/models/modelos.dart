@@ -3,11 +3,20 @@
 // de clases, atributos y operaciones, en la medida que los cinco casos de uso
 // implementados los necesitan.
 
-/// XP necesaria para subir un nivel (igual que el prototipo HTML: 100 Exp).
+/// XP necesaria para subir un nivel del avatar (igual que el prototipo HTML).
 const int xpPorNivel = 100;
 
-/// Congelamientos ("escudos") por semana. Propuesta de la Fase 2, CU-10.
-const int congelamientosPorSemana = 2;
+/// XP por nivel de la mascota (RF-08: avatar y mascota suben por separado).
+/// Valor propuesto, por confirmar con el equipo.
+const int xpPorNivelMascota = 150;
+
+/// Escudos por semana: la documentación dice «1 corazón o escudo por semana».
+const int congelamientosPorSemana = 1;
+
+/// Edades del público objetivo (13 a 35 años).
+const int edadMinima = 13;
+const int edadMayoria = 18;
+const int edadMaximaObjetivo = 35;
 
 /// Rol de la cuenta: el administrador mantiene catálogo y mensajes (CU-18/19).
 enum Rol { usuario, administrador }
@@ -137,6 +146,7 @@ class Cumplimiento {
     required this.actividadId,
     required this.titulo,
     required this.xpOtorgada,
+    this.hora = 12,
   });
 
   final String dia;
@@ -144,11 +154,15 @@ class Cumplimiento {
   final String titulo;
   final int xpOtorgada;
 
+  /// Hora del día (0–23) en que se completó: entrada del perceptrón.
+  final int hora;
+
   Map<String, dynamic> toJson() => {
     'dia': dia,
     'actividadId': actividadId,
     'titulo': titulo,
     'xp': xpOtorgada,
+    'hora': hora,
   };
 
   factory Cumplimiento.fromJson(Map<String, dynamic> j) => Cumplimiento(
@@ -156,6 +170,7 @@ class Cumplimiento {
     actividadId: j['actividadId'] as String,
     titulo: j['titulo'] as String,
     xpOtorgada: j['xp'] as int,
+    hora: j['hora'] as int? ?? 12,
   );
 }
 
@@ -318,11 +333,15 @@ class ResultadoCompletar {
     required this.xp,
     required this.subioNivel,
     required this.nivel,
+    this.subioMascota = false,
+    this.nivelMascota = 1,
   });
 
   final int xp;
   final bool subioNivel;
   final int nivel;
+  final bool subioMascota;
+  final int nivelMascota;
 }
 
 // ------------------------------------------------------- cuenta y perfil ---
@@ -338,6 +357,8 @@ class Cuenta {
     required this.apellidos,
     required this.fechaNac,
     this.rol = Rol.usuario,
+    this.aceptoPrivacidad = false,
+    this.consentimientoTutor = false,
   });
 
   final String correo;
@@ -347,6 +368,12 @@ class Cuenta {
   final String apellidos;
   final String fechaNac;
   final Rol rol;
+
+  /// Aceptó el aviso de privacidad al registrarse.
+  final bool aceptoPrivacidad;
+
+  /// De 13 a 17 años: madre, padre o tutor dio su consentimiento.
+  final bool consentimientoTutor;
 
   bool verificar(String password, String Function(String) hashear) =>
       hashear('$sal$password') == hash;
@@ -359,6 +386,8 @@ class Cuenta {
     'apellidos': apellidos,
     'fechaNac': fechaNac,
     'rol': rol.name,
+    'aceptoPrivacidad': aceptoPrivacidad,
+    'consentimientoTutor': consentimientoTutor,
   };
 
   factory Cuenta.fromJson(Map<String, dynamic> j) => Cuenta(
@@ -372,6 +401,8 @@ class Cuenta {
       (r) => r.name == j['rol'],
       orElse: () => Rol.usuario,
     ),
+    aceptoPrivacidad: j['aceptoPrivacidad'] as bool? ?? false,
+    consentimientoTutor: j['consentimientoTutor'] as bool? ?? false,
   );
 }
 
@@ -462,8 +493,9 @@ class MensajeValidado {
 
 // ------------------------------------------------------------- comunidad ---
 
-/// Mensaje anónimo de aliento (CU-14). Sin servidor: vive en el dispositivo,
-/// por lo que es una comunidad simulada y sin exposición del usuario.
+/// Mensaje anónimo de aliento (CU-14). Solo puede ser una frase predefinida
+/// o un logro: no hay texto libre (mitigación «comunidad tóxica»). Sin
+/// servidor vive en el dispositivo; con servidor viene del muro compartido.
 class Publicacion {
   const Publicacion({
     required this.id,
@@ -498,28 +530,204 @@ class Publicacion {
 
 // --------------------------------------------------------- sincronización ---
 
-/// Cambio local pendiente de subir cuando haya servidor (RNF-07).
+
+/// Cambio local pendiente de subir al servidor (RNF-07). El `id` lo genera
+/// el dispositivo (UUID): si el envío se repite, el servidor lo reconoce y no
+/// duplica el registro.
 class EntradaSincronizacion {
   EntradaSincronizacion({
     required this.id,
-    required this.operacion,
+    required this.tipo,
     required this.fecha,
+    this.datos = const {},
   });
 
   final String id;
-  final String operacion;
+
+  /// animo, cumplimiento, descanso, escudo, tarea, perfil o riesgo.
+  final String tipo;
   final String fecha;
+  final Map<String, dynamic> datos;
+
+  /// Texto corto para mostrar en pantalla.
+  String get operacion => switch (tipo) {
+    'animo' => 'ánimo registrado',
+    'cumplimiento' => 'actividad completada',
+    'descanso' => 'día de descanso',
+    'escudo' => 'escudo usado',
+    'tarea' => 'tarea creada',
+    'perfil' => 'perfil actualizado',
+    'riesgo' => 'predicción de riesgo',
+    _ => tipo,
+  };
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'operacion': operacion,
+    'tipo': tipo,
     'fecha': fecha,
+    'datos': datos,
   };
 
   factory EntradaSincronizacion.fromJson(Map<String, dynamic> j) =>
       EntradaSincronizacion(
         id: j['id'] as String,
-        operacion: j['operacion'] as String,
+        tipo: j['tipo'] as String,
         fecha: j['fecha'] as String,
+        datos: (j['datos'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
+}
+
+/// Tipos que el servidor acepta en POST /sync.
+const Set<String> tiposSincronizables = {
+  'animo',
+  'cumplimiento',
+  'descanso',
+  'escudo',
+  'tarea',
+  'perfil',
+  'riesgo',
+};
+
+// --------------------------------------------- reportes de la comunidad ---
+
+/// Reporte de una publicación del muro (CU-23). El Administrador lo revisa
+/// (CU-24) y decide ocultarla para todos o mantenerla.
+class ReportePublicacion {
+  ReportePublicacion({
+    required this.id,
+    required this.publicacionId,
+    required this.texto,
+    required this.motivo,
+    required this.fecha,
+    this.estado = 'pendiente',
+  });
+
+  final String id;
+  final String publicacionId;
+  final String texto;
+  final String motivo;
+  final String fecha;
+
+  /// pendiente, oculta o mantenida.
+  String estado;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'publicacionId': publicacionId,
+    'texto': texto,
+    'motivo': motivo,
+    'fecha': fecha,
+    'estado': estado,
+  };
+
+  factory ReportePublicacion.fromJson(Map<String, dynamic> j) =>
+      ReportePublicacion(
+        id: j['id'] as String,
+        publicacionId: j['publicacionId'] as String,
+        texto: j['texto'] as String,
+        motivo: j['motivo'] as String? ?? '',
+        fecha: j['fecha'] as String,
+        estado: j['estado'] as String? ?? 'pendiente',
+      );
+}
+
+const List<String> motivosReporte = [
+  'Es ofensivo',
+  'Me hizo sentir mal',
+  'Parece spam',
+];
+
+// ------------------------------------------------- compañero fantasma ---
+
+/// Señal anónima «alguien en el mundo completó su misión de hoy».
+class SenalFantasma {
+  const SenalFantasma({
+    required this.id,
+    required this.haceMinutos,
+    this.simulada = false,
+  });
+
+  final String id;
+  final int haceMinutos;
+
+  /// true si la generó la app porque no hay servidor (modo sin conexión).
+  final bool simulada;
+}
+
+/// Reacción enviada o recibida con el compañero fantasma (entrada x5 del
+/// perceptrón).
+class InteraccionFantasma {
+  InteraccionFantasma({
+    required this.dia,
+    required this.reaccion,
+    required this.recibida,
+    this.senalId = '',
+    this.simulada = false,
+    this.vista = false,
+  });
+
+  final String dia;
+  final String reaccion;
+  final bool recibida;
+  final String senalId;
+  final bool simulada;
+
+  /// Para las recibidas: true cuando el usuario ya vio el aviso.
+  bool vista;
+
+  Map<String, dynamic> toJson() => {
+    'dia': dia,
+    'reaccion': reaccion,
+    'recibida': recibida,
+    'senalId': senalId,
+    'simulada': simulada,
+    'vista': vista,
+  };
+
+  factory InteraccionFantasma.fromJson(Map<String, dynamic> j) =>
+      InteraccionFantasma(
+        dia: j['dia'] as String,
+        reaccion: j['reaccion'] as String,
+        recibida: j['recibida'] as bool? ?? false,
+        senalId: j['senalId'] as String? ?? '',
+        simulada: j['simulada'] as bool? ?? false,
+        vista: j['vista'] as bool? ?? true,
+      );
+}
+
+/// Reacciones predefinidas de la documentación (no hay chat).
+const Map<String, String> reaccionesFantasma = {
+  'bien_hecho': '¡Bien hecho!',
+  'tu_puedes': '¡Tú puedes!',
+  'sigue_asi': 'Sigue así',
+};
+
+// ------------------------------------------------------ mascota y jardín ---
+
+/// Cómo se ve la mascota según la actividad reciente. Nunca muere ni pierde
+/// nivel: solo cambia su ánimo, y los textos siempre son amables.
+enum EstadoMascota { feliz, somnolienta, triste }
+
+/// Decoración de la tienda del jardín. Se compra con semillas que se ganan
+/// jugando: no hay micropagos.
+class Decoracion {
+  const Decoracion({
+    required this.id,
+    required this.emoji,
+    required this.nombre,
+    required this.precio,
+  });
+
+  final String id;
+  final String emoji;
+  final String nombre;
+  final int precio;
+}
+
+/// Frase predefinida del muro de aliento.
+class FraseMuro {
+  const FraseMuro({required this.id, required this.texto});
+
+  final String id;
+  final String texto;
 }

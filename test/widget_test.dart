@@ -132,7 +132,7 @@ void main() {
       reloj.avanzarDias(2); // martes sin abrir; es miércoles
       await e.abrirDia();
       expect(e.racha.dias, 1);
-      expect(e.racha.congelamientos, 1);
+      expect(e.racha.congelamientos, 0); // 1 escudo por semana
       expect(e.xpTotal, xp);
       expect(e.fueDescanso(DateTime(2026, 11, 10)), isTrue);
       expect(e.mensajeCierre!.reiniciada, isFalse);
@@ -146,7 +146,7 @@ void main() {
       await e.abrirDia();
       e.completarActividad(e.metasHoy.first);
       expect(e.racha.dias, 2);
-      expect(e.racha.congelamientos, 2);
+      expect(e.racha.congelamientos, 1);
       expect(e.mensajeCierre, isNull);
     });
 
@@ -171,12 +171,12 @@ void main() {
       e.completarActividad(e.metasHoy.first);
       reloj.avanzarDias(2);
       await e.abrirDia();
-      expect(e.racha.congelamientos, 1);
+      expect(e.racha.congelamientos, 0);
       e.completarActividad(e.metasHoy.first);
       reloj.avanzarDias(5); // lunes siguiente
       await e.abrirDia();
-      // jueves a domingo: 1 escudo, luego reinicio; el lunes vuelve a haber 2
-      expect(e.racha.congelamientos, 2);
+      // jueves a domingo: sin escudo, la racha se reinicia; el lunes vuelve 1
+      expect(e.racha.congelamientos, 1);
     });
 
     test('E1: el estado sobrevive a cerrar y reabrir la app', () async {
@@ -188,7 +188,7 @@ void main() {
       final otra = BrotaState(almacen: almacen, ahora: reloj.call);
       await otra.iniciar();
       expect(otra.racha.dias, 1);
-      expect(otra.racha.congelamientos, 1);
+      expect(otra.racha.congelamientos, 0);
       expect(otra.contactos.single.nombre, 'Mamá');
       expect(otra.animos.length, 1);
     });
@@ -214,6 +214,11 @@ void main() {
     expect(find.text('¿Cómo te sientes hoy?'), findsWidgets);
     await t.tap(find.text('Ahora no'));
     await t.pumpAndSettle();
+    await t.scrollUntilVisible(
+      find.text('Misiones de hoy'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Misiones de hoy'), findsOneWidget);
     expect(find.text('S.O.S'), findsWidgets);
     expect(estado.debePreguntarAnimo, isFalse);
@@ -237,17 +242,28 @@ void main() {
     expect(find.textContaining('Hoy toca algo suave'), findsOneWidget);
 
     // CU-09: completar una misión da XP.
-    await t.ensureVisible(find.text(estado.metasHoy.first.titulo));
+    await t.scrollUntilVisible(
+      find.text(estado.metasHoy.first.titulo),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await t.pumpAndSettle();
     await t.tap(find.text(estado.metasHoy.first.titulo));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
-    expect(find.textContaining('+10 Exp 💚'), findsOneWidget);
+    expect(find.textContaining('🌿 +10 Exp'), findsOneWidget); // aviso implícito
     expect(estado.racha.dias, 1);
     await t.pumpAndSettle(const Duration(seconds: 3));
 
     // CU-07: crear tarea personalizada.
-    await t.ensureVisible(find.text('Nueva tarea'));
+    await t.scrollUntilVisible(
+      find.text('Nueva tarea'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // Se sube un poco más para que el botón no quede bajo el S.O.S.
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -300));
+    await t.pumpAndSettle();
     await t.tap(find.text('Nueva tarea'));
     await t.pumpAndSettle();
     await t.tap(find.text('Crear tarea'));

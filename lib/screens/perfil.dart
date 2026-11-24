@@ -26,6 +26,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   bool _registrando = false;
   bool _esAdmin = false;
+  bool _aceptaPrivacidad = false;
+  bool _consentimientoTutor = false;
   bool _cargando = false;
   String? _error;
 
@@ -120,6 +122,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
       correo: _correo.text,
       password: _password.text,
       nombre: _nombre.text,
+      fechaNac: _fechaNac.text,
+      aceptaPrivacidad: _aceptaPrivacidad,
+      consentimientoTutor: _consentimientoTutor,
     );
     if (error != null) {
       setState(() => _error = error);
@@ -137,6 +142,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
       nombre: _nombre.text,
       apellidos: _apellidos.text,
       fechaNac: _fechaNac.text,
+      aceptaPrivacidad: _aceptaPrivacidad,
+      consentimientoTutor: _consentimientoTutor,
       rol: _esAdmin ? Rol.administrador : Rol.usuario,
     );
     if (!mounted) return;
@@ -152,12 +159,34 @@ class _PerfilScreenState extends State<PerfilScreen> {
     mensajes
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            '¡Tu cuenta ya está lista! Bienvenida o bienvenido a Brota 🌿',
+            estado.fueraDeRangoObjetivo
+                ? 'Tu cuenta está lista 🌿 Brota está pensada para personas de '
+                      '13 a 35 años, pero puedes usarla igual.'
+                : '¡Tu cuenta ya está lista! Bienvenida o bienvenido a Brota 🌿',
           ),
         ),
       );
+  }
+
+  /// Menores de 18 (y de 13 o más) necesitan consentimiento del tutor.
+  bool get _esMenor {
+    final edad = BrotaScope.of(context).edadDe(_fechaNac.text);
+    return edad != null && edad >= edadMinima && edad < edadMayoria;
+  }
+
+  Future<void> _elegirFecha() async {
+    final hoy = DateTime.now();
+    final f = await showDatePicker(
+      context: context,
+      initialDate: DateTime(hoy.year - 18, hoy.month, hoy.day),
+      firstDate: DateTime(hoy.year - 100),
+      lastDate: hoy,
+      helpText: 'Fecha de nacimiento',
+    );
+    if (f == null) return;
+    setState(() => _fechaNac.text = claveDia(f));
   }
 
   Future<void> _invitado() async {
@@ -341,10 +370,48 @@ class _PerfilScreenState extends State<PerfilScreen> {
                   controller: _fechaNac,
                   keyboardType: TextInputType.datetime,
                   textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _registrarse(),
-                  decoration: const InputDecoration(
-                    labelText: 'Fecha de nacimiento (opcional)',
+                  decoration: InputDecoration(
+                    labelText: 'Fecha de nacimiento',
                     hintText: 'AAAA-MM-DD',
+                    helperText: 'Brota es para personas de 13 años o más',
+                    suffixIcon: IconButton(
+                      tooltip: 'Elegir fecha',
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      onPressed: _elegirFecha,
+                    ),
+                  ),
+                ),
+                if (_esMenor) ...[
+                  const SizedBox(height: 6),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _consentimientoTutor,
+                    onChanged: (v) =>
+                        setState(() => _consentimientoTutor = v ?? false),
+                    title: const Text(
+                      'Mi madre, padre o tutor leyó el aviso de privacidad y '
+                      'está de acuerdo con que use Brota',
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _aceptaPrivacidad,
+                  onChanged: (v) =>
+                      setState(() => _aceptaPrivacidad = v ?? false),
+                  title: const Text('Leí y acepto el aviso de privacidad'),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => mostrarAvisoPrivacidad(context),
+                    icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                    label: const Text('Leer aviso de privacidad'),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -441,8 +508,25 @@ class _PerfilScreenState extends State<PerfilScreen> {
               _Dato(label: 'Rol', valor: cuenta.rol.texto),
               const SizedBox(height: 6),
               Text(
-                'Nivel ${estado.nivel} · ${estado.xpTotal} Exp',
+                'Avatar nivel ${estado.nivel} · ${estado.mascotaNombre} nivel '
+                '${estado.nivelMascota} · ${estado.xpTotal} Exp',
                 style: TextStyle(color: e.onSurfaceVariant, fontSize: 13),
+              ),
+              if (estado.fueraDeRangoObjetivo) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Brota está pensada para personas de 13 a 35 años. Puedes '
+                  'usarla igual; algunos textos quizá no te queden del todo.',
+                  style: TextStyle(color: e.onSurfaceVariant, fontSize: 13),
+                ),
+              ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => mostrarAvisoPrivacidad(context),
+                  icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                  label: const Text('Aviso de privacidad'),
+                ),
               ),
             ],
           ),
@@ -551,3 +635,39 @@ class _Dato extends StatelessWidget {
     ),
   );
 }
+
+
+/// Aviso de privacidad simplificado (riesgo «menores de edad»). Se muestra
+/// al registrarse y desde Mi perfil.
+Future<void> mostrarAvisoPrivacidad(BuildContext context) => showDialog<void>(
+  context: context,
+  builder: (c) => AlertDialog(
+    title: const Text('Aviso de privacidad'),
+    content: const SingleChildScrollView(
+      child: Text(
+        'Quién usa tus datos: el equipo de Brota (proyecto escolar, BUAP).\n\n'
+        'Qué datos: correo, nombre, fecha de nacimiento, tu ánimo y energía '
+        'diarios, las actividades que completas y tus contactos de confianza.\n\n'
+        'Para qué: mostrar tu progreso, ajustar la dificultad de tus misiones y '
+        'que el botón S.O.S. funcione. El modelo de riesgo no diagnostica '
+        'ninguna condición de salud.\n\n'
+        'Dónde se guardan: cifrados en tu dispositivo. Si conectas un servidor, '
+        'viajan por HTTPS y se guardan cifrados; la contraseña solo se guarda '
+        'como hash. Tus contactos de confianza y el uso del S.O.S. nunca salen '
+        'del dispositivo.\n\n'
+        'Lo que nunca hacemos: vender datos, mostrar tu nombre en la comunidad '
+        'ni compararte con otras personas.\n\n'
+        'Menores de 18 años: se necesita el consentimiento de madre, padre o '
+        'tutor. Menores de 13 años no pueden registrarse.\n\n'
+        'Tus derechos: puedes exportar tu historial en PDF, cerrar sesión o '
+        'borrar la app y sus datos cuando quieras.',
+      ),
+    ),
+    actions: [
+      FilledButton(
+        onPressed: () => Navigator.pop(c),
+        child: const Text('Entendido'),
+      ),
+    ],
+  ),
+);

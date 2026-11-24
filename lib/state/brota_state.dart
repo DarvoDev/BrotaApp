@@ -1,13 +1,20 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'dart:async';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../data/catalogo.dart';
+import '../logic/clasificador.dart';
+import '../logic/perceptron.dart';
 import '../models/modelos.dart';
 import '../services/almacen.dart';
+import '../services/api.dart';
 import '../services/cifrado.dart';
+import '../services/notificaciones.dart';
 import '../services/pdf_historial.dart';
 
 /// Estado de la app y lógica de los diecinueve casos de uso del catálogo.
@@ -20,12 +27,54 @@ import '../services/pdf_historial.dart';
 ///
 /// Todo se guarda cifrado en el dispositivo; no necesita conexión (RNF-02/03).
 class BrotaState extends ChangeNotifier {
-  BrotaState({required Almacen almacen, DateTime Function()? ahora})
-    : _almacen = almacen, // ignore: prefer_initializing_formals
-      _ahora = ahora ?? DateTime.now;
+  BrotaState({
+    required Almacen almacen,
+    DateTime Function()? ahora,
+    Notificador? notificador,
+    http.Client? clienteHttp,
+  }) : _almacen = almacen, // ignore: prefer_initializing_formals
+       _ahora = ahora ?? DateTime.now,
+       _notificador = notificador, // ignore: prefer_initializing_formals
+       _clienteHttp = clienteHttp; // ignore: prefer_initializing_formals
 
   final Almacen _almacen;
   final DateTime Function() _ahora;
+  final Notificador? _notificador;
+  final http.Client? _clienteHttp;
+
+  // ------------------------- Perceptrón de riesgo (elemento innovador) -----
+  PerceptronRiesgo perceptron = PerceptronRiesgo();
+
+  /// Predicción guardada por día (aaaa-mm-dd → predicción para ese día).
+  final Map<String, PrediccionRiesgo> predicciones = {};
+
+  /// Días en los que se gastó un escudo (entrada x3 del perceptrón).
+  final Set<String> diasEscudo = {};
+  String? _primerDia;
+
+  /// Días de historial que necesita el modelo antes de predecir.
+  static const int diasMinimosRiesgo = 2;
+
+  // -------------------------------------------- Compañero fantasma --------
+  final List<InteraccionFantasma> interacciones = [];
+  final Set<String> senalesRespondidas = {};
+  List<SenalFantasma> _senalesServidor = [];
+
+  // ------------------------------------------- Tienda del jardín ----------
+  /// Moneda gastable: 1 semilla por cada Exp. La XP total no baja al comprar.
+  int semillas = 0;
+  final List<String> decoracionesCompradas = [];
+
+  // ---------------------------------------- Moderación de la comunidad ----
+  final List<ReportePublicacion> reportes = [];
+  final Set<String> publicacionesOcultas = {};
+
+  // ------------------------------------------------- Servidor opcional ----
+  String servidorUrl = '';
+  String? _token;
+  String rolServidor = 'usuario';
+  String? ultimaSincronizacion;
+  Timer? _temporizadorSync;
 
   int xpTotal = 0;
   Racha racha = Racha();
@@ -81,8 +130,290 @@ class BrotaState extends ChangeNotifier {
   DateTime get hoy => soloDia(_ahora());
   String get _hoyClave => claveDia(hoy);
 
+  /// Nivel del avatar (cada 100 Exp). Brotito evoluciona con este nivel.
   int get nivel => 1 + xpTotal ~/ xpPorNivel;
   int get xpEnNivel => xpTotal % xpPorNivel;
+
+  /// Nivel de la mascota (cada 150 Exp): sube por separado (RF-08).
+  int get nivelMascota => 1 + xpTotal ~/ xpPorNivelMascota;
+  int get xpEnNivelMascota => xpTotal % xpPorNivelMascota;
+
+  // ------------------------------------------- estado de la mascota -------
+
+  /// Días seguidos sin actividad hasta ayer, contando desde el primer uso.
+  int get diasSinActividad {
+    final inicio = _primerDia == null ? hoy : diaDeClave(_primerDia!);
+    var n = 0;
+    var d = sumarDias(hoy, -1);
+    while (n < 60 && !d.isBefore(inicio) && !huboActividad(d)) {
+      n++;
+      d = sumarDias(d, -1);
+    }
+    return n;
+  }
+
+  /// Feliz si hoy hizo algo o ayer hubo actividad; somnolienta con 1 día sin
+  /// actividad; triste con 2 o más. Nunca muere ni pierde nivel.
+  EstadoMascota get estadoMascota {
+    if (completadasHoy > 0) return EstadoMascota.feliz;
+    final n = diasSinActividad;
+    if (n >= 2) return EstadoMascota.triste;
+    if (n == 1) return EstadoMascota.somnolienta;
+    return EstadoMascota.feliz;
+  }
+
+  String get fraseMascota {
+    final lista = frasesMascota[estadoMascota]!;
+    return lista[hoy.day % lista.length];
+  }
+
+  // ------------------------------------------------- perceptrón -----------
+
+  /// Predicción para hoy, calculada al cerrar el día de ayer.
+  PrediccionRiesgo? get prediccionHoy => predicciones[_hoyClave];
+
+  bool get riesgoAltoHoy => prediccionHoy?.alto ?? false;
+
+  bool _hayHistorial(DateTime d) =>
+      _primerDia != null &&
+      !sumarDias(diaDeClave(_primerDia!), diasMinimosRiesgo - 1).isAfter(d);
+
+  /// Entradas del perceptrón con los datos hasta el día [d] (inclusive).
+  DatosRiesgo datosRiesgo(DateTime d) {
+    final dias7 = [for (var i = 0; i < 7; i++) claveDia(sumarDias(d, -i))];
+    final horas = [
+      for (final c in cumplimientos)
+        if (dias7.contains(c.dia)) c.hora,
+    ];
+    final lunes = lunesDe(d);
+    final escudos = diasEscudo.where((k) {
+      final f = diaDeClave(k);
+      return !f.isBefore(lunes) && !f.isAfter(d);
+    }).length;
+    RegistroAnimo? ultimo;
+    for (final r in animos.values) {
+      if (diaDeClave(r.dia).isAfter(d)) continue;
+      if (ultimo == null || r.dia.compareTo(ultimo.dia) > 0) ultimo = r;
+    }
+    final manana = sumarDias(d, 1);
+    return DatosRiesgo(
+      diasActivos7: dias7.where((k) => huboActividad(diaDeClave(k))).length,
+      horasCumplimiento7: horas,
+      escudosSemana: escudos,
+      mananaEsFinDeSemana: manana.weekday >= DateTime.saturday,
+      interaccionesFantasma7: interacciones
+          .where((i) => dias7.contains(i.dia))
+          .length,
+      ultimoAnimo: ultimo?.animo,
+      ultimaEnergia: ultimo?.energia,
+      activoHoy: huboActividad(d),
+    );
+  }
+
+  /// Pronóstico en vivo para mañana con lo que va del día (se recalcula al
+  /// completar actividades o registrar el ánimo).
+  PrediccionRiesgo? get pronosticoManana {
+    if (!_hayHistorial(hoy)) return null;
+    final x = datosRiesgo(hoy).entradas;
+    final z = perceptron.puntaje(x);
+    return PrediccionRiesgo(
+      dia: claveDia(sumarDias(hoy, 1)),
+      alto: z > 0,
+      puntaje: z,
+      entradas: x,
+    );
+  }
+
+  /// Aprende del día [d] (ya cerrado) y predice el día siguiente.
+  void _aprenderYPredecir(DateTime d) {
+    final clave = claveDia(d);
+    final previa = predicciones[clave];
+    if (previa != null && previa.entradas.length == perceptron.pesos.length) {
+      perceptron.aprender(previa.entradas, huboRiesgo: !huboActividad(d));
+    }
+    if (!_hayHistorial(d)) return;
+    final x = datosRiesgo(d).entradas;
+    final z = perceptron.puntaje(x);
+    final siguiente = claveDia(sumarDias(d, 1));
+    predicciones[siguiente] = PrediccionRiesgo(
+      dia: siguiente,
+      alto: z > 0,
+      puntaje: z,
+      entradas: x,
+    );
+    _registrarCambio('riesgo', {
+      'dia': siguiente,
+      'riesgo': z > 0 ? 'ALTO' : 'BAJO',
+      'puntaje': double.parse(z.toStringAsFixed(2)),
+    });
+    // Se guardan solo los últimos 60 días.
+    if (predicciones.length > 60) {
+      final claves = predicciones.keys.toList()..sort();
+      for (final k in claves.take(predicciones.length - 60)) {
+        predicciones.remove(k);
+      }
+    }
+  }
+
+  /// Volver a los pesos iniciales (desde la pantalla del modelo).
+  Future<void> reiniciarModelo() async {
+    perceptron.reiniciar();
+    notifyListeners();
+    await _guardar();
+  }
+
+  // ------------------------------------------- compañero fantasma ---------
+
+  bool get conectado => servidorUrl.isNotEmpty && _token != null;
+
+  ServicioApi? get _api => conectado
+      ? ServicioApi(servidorUrl, cliente: _clienteHttp, token: _token)
+      : null;
+
+  /// Señales «alguien completó su misión de hoy» a las que aún no respondí.
+  /// Con servidor son reales; sin servidor la app genera de 2 a 4 señales de
+  /// ejemplo al día en horarios aleatorios y lo indica en pantalla
+  /// (`simulada = true`): no se presentan como personas reales.
+  List<SenalFantasma> get senalesFantasma {
+    if (conectado) {
+      return [
+        for (final s in _senalesServidor)
+          if (!senalesRespondidas.contains(s.id)) s,
+      ];
+    }
+    final ahora = _ahora();
+    final dia = _hoyClave;
+    final azar = Random(_semillaDia);
+    final total = 2 + azar.nextInt(3);
+    final lista = <SenalFantasma>[];
+    for (var i = 0; i < total; i++) {
+      final minuto = (7 + azar.nextInt(15)) * 60 + azar.nextInt(60);
+      final id = 'sim-$dia-$i';
+      final hace = ahora.hour * 60 + ahora.minute - minuto;
+      if (hace >= 0 && !senalesRespondidas.contains(id)) {
+        lista.add(SenalFantasma(id: id, haceMinutos: hace, simulada: true));
+      }
+    }
+    return lista;
+  }
+
+  /// Reacciones recibidas que el usuario aún no ha visto.
+  List<InteraccionFantasma> get reaccionesNuevas => [
+    for (final i in interacciones)
+      if (i.recibida && !i.vista) i,
+  ];
+
+  Future<void> reaccionarASenal(SenalFantasma s, String reaccion) async {
+    if (!reaccionesFantasma.containsKey(reaccion)) return;
+    if (senalesRespondidas.contains(s.id)) return;
+    senalesRespondidas.add(s.id);
+    interacciones.add(
+      InteraccionFantasma(
+        dia: _hoyClave,
+        reaccion: reaccion,
+        recibida: false,
+        senalId: s.id,
+        simulada: s.simulada,
+      ),
+    );
+    notifyListeners();
+    await _guardar();
+    final api = _api;
+    if (api != null && !s.simulada) {
+      try {
+        await api.reaccionar(s.id, reaccion);
+      } on ErrorApi {
+        // Si falla la red, la reacción queda registrada aquí.
+      }
+    }
+  }
+
+  Future<void> marcarReaccionesVistas() async {
+    for (final i in reaccionesNuevas) {
+      i.vista = true;
+    }
+    notifyListeners();
+    await _guardar();
+  }
+
+  /// Primera actividad del día: se avisa «alguien completó su misión».
+  /// Sin servidor se simula una reacción de vuelta (queda marcada así).
+  Future<void> _avisarMisionCumplida() async {
+    final api = _api;
+    if (api != null) {
+      try {
+        await api.enviarSenal();
+      } on ErrorApi {
+        // Sin red: no pasa nada, el progreso ya está guardado.
+      }
+      return;
+    }
+    final claves = reaccionesFantasma.keys.toList();
+    interacciones.add(
+      InteraccionFantasma(
+        dia: _hoyClave,
+        reaccion: claves[Random(_semillaDia + 7).nextInt(claves.length)],
+        recibida: true,
+        simulada: true,
+      ),
+    );
+  }
+
+  /// Trae señales y reacciones reales del servidor.
+  Future<void> refrescarFantasma() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      _senalesServidor = await api.senales();
+      for (final r in await api.recibidas()) {
+        interacciones.add(
+          InteraccionFantasma(dia: _hoyClave, reaccion: r, recibida: true),
+        );
+      }
+      notifyListeners();
+      await _guardar();
+    } on ErrorApi {
+      // Sin conexión se conserva lo último que se tenía.
+    }
+  }
+
+  // ----------------------------------------------- tienda del jardín ------
+
+  bool tieneDecoracion(String id) => decoracionesCompradas.contains(id);
+
+  /// Compra con semillas. Devuelve null si se pudo, o el motivo si no.
+  Future<String?> comprarDecoracion(String id) async {
+    final d = decoracionPorId(id);
+    if (d == null) return 'Esa decoración no existe';
+    if (tieneDecoracion(id)) return 'Ya está en tu jardín';
+    if (semillas < d.precio) {
+      return 'Te faltan ${d.precio - semillas} semillas. Se ganan con cada actividad 🌱';
+    }
+    semillas -= d.precio;
+    decoracionesCompradas.add(id);
+    notifyListeners();
+    await _guardar();
+    return null;
+  }
+
+  // ------------------------------------------- edad y consentimiento ------
+
+  /// Edad cumplida a hoy, o null si la fecha no es válida o es futura.
+  int? edadDe(String fechaNac) {
+    final f = DateTime.tryParse(fechaNac.trim());
+    if (f == null || f.isAfter(hoy)) return null;
+    var edad = hoy.year - f.year;
+    if (hoy.month < f.month || (hoy.month == f.month && hoy.day < f.day)) {
+      edad--;
+    }
+    return edad;
+  }
+
+  /// Mayores de 35: se les permite usar Brota, solo se les avisa.
+  bool get fueraDeRangoObjetivo {
+    final e = cuenta == null ? null : edadDe(cuenta!.fechaNac);
+    return e != null && e > edadMaximaObjetivo;
+  }
 
   /// Clave fija del dispositivo: RNF-02 evita que los datos se lean como texto.
   String get claveCifrado => _claveCifrado;
@@ -134,13 +465,20 @@ class BrotaState extends ChangeNotifier {
       cumplimientos.where((c) => c.dia == _hoyClave).length;
 
   /// Mensaje amable que acompaña a las metas del día (CU-05, paso 6).
+  /// Estilo implícito: describe lo que la app preparó, no da órdenes.
   String get mensajeDelDia {
     final r = animoDeHoy;
+    if (riesgoAltoHoy) {
+      return 'Hoy preparé misiones más ligeras 🌤️ El jardín no tiene prisa.';
+    }
     if (r == null) return 'Un pasito a la vez 🌱';
     if (r.esBajo()) return 'Hoy toca algo suave 🌤️ Elegí metas ligeras para ti.';
     if (r.esAlto()) return 'Hoy hay un reto extra, solo si te nace ✨';
     return 'Un pasito a la vez 🌱';
   }
+
+  /// Semilla estable por día para lo que se elige «al azar».
+  int get _semillaDia => _hoyClave.codeUnits.fold(0, (s, c) => s * 31 + c) & 0x7fffffff;
 
   /// CU-05, flujo A3: ánimo en el nivel más bajo 3 días seguidos.
   bool get animoMuyBajoSostenido {
@@ -178,15 +516,28 @@ class BrotaState extends ChangeNotifier {
 
   // ----------------------------------- CU-12 Mensajes motivacionales ------
 
-  MensajeValidado get mensajeMotivacionalDelDia =>
-      mensajes.isEmpty
-      ? const MensajeValidado(
+  /// Mensaje del día: se prefieren los de estilo implícito según el
+  /// diccionario de palabras clave.
+  MensajeValidado get mensajeMotivacionalDelDia {
+    if (mensajes.isEmpty) {
+      return const MensajeValidado(
         id: 'msg-base',
         texto: 'Un pasito a la vez también es avanzar 🌱',
         categoria: 'Aliento',
         validadoPor: 'Equipo Brota',
-      )
-      : mensajes[hoy.day % mensajes.length];
+      );
+    }
+    final implicitos = [
+      for (final m in mensajes)
+        if (ClasificadorFrases.clasificar(m.texto).implicita) m,
+    ];
+    final lista = implicitos.isEmpty ? mensajes : implicitos;
+    return lista[hoy.day % lista.length];
+  }
+
+  /// Clasifica una frase con el diccionario (CU-19a).
+  Clasificacion clasificarFrase(String texto) =>
+      ClasificadorFrases.clasificar(texto);
 
   // ------------------------------------ CU-14 Compartir y aliento ---------
 
@@ -194,6 +545,17 @@ class BrotaState extends ChangeNotifier {
   String get logroCompartible =>
       'Llevo ${racha.dias} día(s) de racha y $xpTotal Exp en Brota. '
       'Un pasito a la vez también es avanzar 🌱';
+
+  /// Publicaciones que este usuario ve (las que reportó quedan ocultas).
+  List<Publicacion> get publicacionesVisibles => [
+    for (final p in publicaciones)
+      if (!publicacionesOcultas.contains(p.id)) p,
+  ];
+
+  List<ReportePublicacion> get reportesPendientes => [
+    for (final r in reportes)
+      if (r.estado == 'pendiente') r,
+  ];
 
   // --------------------------------- CU-15/16 Panel y resumen -------------
 
@@ -297,6 +659,7 @@ class BrotaState extends ChangeNotifier {
       // Datos ilegibles: se empieza de cero en vez de impedir abrir la app.
     }
     await abrirDia();
+    await _reprogramarNotificaciones();
   }
 
   /// Se llama al abrir la app y al volver a primer plano. Cierra los días
@@ -312,6 +675,11 @@ class BrotaState extends ChangeNotifier {
       await _guardar();
       notifyListeners();
     }
+    // RNF-07: al volver a abrir (y si hay red) se envían los pendientes.
+    if (conectado) {
+      _programarSync();
+      unawaited(refrescarFantasma());
+    }
   }
 
   // --------------------------------------- CU-10 Proteger racha flexible ---
@@ -320,6 +688,7 @@ class BrotaState extends ChangeNotifier {
   /// pendiente en orden al siguiente inicio (excepción E1).
   void _cerrarDiasPendientes() {
     final ayer = sumarDias(hoy, -1);
+    _primerDia ??= _hoyClave;
     if (_ultimoDiaCerrado == null) {
       _ultimoDiaCerrado = claveDia(ayer);
       _semanaEscudos = claveDia(lunesDe(hoy));
@@ -335,6 +704,8 @@ class BrotaState extends ChangeNotifier {
         if (racha.dias > 0) {
           if (racha.aplicarCongelamiento()) {
             escudosUsados++;
+            diasEscudo.add(claveDia(d));
+            _registrarCambio('escudo', {'dia': claveDia(d)});
           } else {
             // A2: sin congelamientos. Solo la racha vuelve a 0;
             // XP, nivel y mascota no se tocan.
@@ -344,7 +715,10 @@ class BrotaState extends ChangeNotifier {
           }
         }
         descansos.add(claveDia(d)); // «descanso», nunca «fallo»
+        _registrarCambio('descanso', {'dia': claveDia(d)});
       }
+      // Perceptrón: aprende de este día y predice el siguiente.
+      _aprenderYPredecir(d);
       d = sumarDias(d, 1);
     }
     _renovarEscudos(hoy);
@@ -382,7 +756,11 @@ class BrotaState extends ChangeNotifier {
     animos[_hoyClave] = r;
     _diaMetas = _hoyClave;
     _metasHoy = _generarMetas(r);
-    _registrarCambio('ánimo registrado');
+    _registrarCambio('animo', {
+      'dia': _hoyClave,
+      'animo': animo,
+      'energia': energia,
+    });
     notifyListeners();
     await _guardar();
   }
@@ -393,13 +771,16 @@ class BrotaState extends ChangeNotifier {
     await _guardar();
   }
 
-  /// CU-05a Ajustar metas del día, por reglas (sin IA):
+  /// CU-05a Ajustar metas del día:
+  /// riesgo ALTO según el perceptrón → 2 metas de esfuerzo ligero (CU-20);
   /// ánimo o energía bajos → 2 metas de esfuerzo ligero;
   /// ánimo y energía altos → se agrega un reto de esfuerzo alto;
   /// en otro caso → 2 ligeras y 1 media.
   List<String> _generarMetas(RegistroAnimo? r) {
     final List<int> esfuerzos;
-    if (r == null) {
+    if (riesgoAltoHoy) {
+      esfuerzos = [1, 1];
+    } else if (r == null) {
       esfuerzos = [1, 1, 2];
     } else if (r.esBajo()) {
       esfuerzos = [1, 1];
@@ -457,7 +838,12 @@ class BrotaState extends ChangeNotifier {
       esfuerzo: esfuerzo,
     );
     tareas.add(t);
-    _registrarCambio('tarea creada');
+    _registrarCambio('tarea', {
+      'id': t.id,
+      'titulo': t.titulo,
+      'categoria': t.categoria,
+      'esfuerzo': t.esfuerzo,
+    });
     notifyListeners();
     await _guardar();
     return t;
@@ -478,21 +864,46 @@ class BrotaState extends ChangeNotifier {
   ResultadoCompletar? completarActividad(Actividad a) {
     if (completadaHoy(a)) return null;
     final nivelAntes = nivel;
+    final mascotaAntes = nivelMascota;
     final xp = a.calcularXP();
-    if (completadasHoy == 0) racha.dias++;
+    final primeraDelDia = completadasHoy == 0;
+    if (primeraDelDia) racha.dias++;
+    final hora = _ahora().hour;
     cumplimientos.add(
       Cumplimiento(
         dia: _hoyClave,
         actividadId: a.id,
         titulo: a.titulo,
         xpOtorgada: xp,
+        hora: hora,
       ),
     );
     xpTotal += xp;
-    _registrarCambio('actividad completada');
+    semillas += xp;
+    _registrarCambio('cumplimiento', {
+      'dia': _hoyClave,
+      'actividad_id': a.id,
+      'titulo': a.titulo,
+      'xp': xp,
+      'hora': hora,
+    });
     notifyListeners();
-    _guardar();
-    return ResultadoCompletar(xp: xp, subioNivel: nivel > nivelAntes, nivel: nivel);
+    if (primeraDelDia) {
+      // Compañero fantasma: «alguien completó su misión de hoy».
+      _avisarMisionCumplida().then((_) {
+        notifyListeners();
+        return _guardar();
+      });
+    } else {
+      _guardar();
+    }
+    return ResultadoCompletar(
+      xp: xp,
+      subioNivel: nivel > nivelAntes,
+      nivel: nivel,
+      subioMascota: nivelMascota > mascotaAntes,
+      nivelMascota: nivelMascota,
+    );
   }
 
   /// Deshace un cumplimiento de hoy marcado por error.
@@ -501,9 +912,18 @@ class BrotaState extends ChangeNotifier {
       (c) => c.dia == _hoyClave && c.actividadId == a.id,
     );
     if (i < 0) return;
-    xpTotal -= cumplimientos[i].xpOtorgada;
+    final c = cumplimientos[i];
+    xpTotal -= c.xpOtorgada;
     if (xpTotal < 0) xpTotal = 0;
+    semillas = max(0, semillas - c.xpOtorgada);
     cumplimientos.removeAt(i);
+    // Si aún no se subió, se quita de la cola para no enviarlo.
+    cambiosPendientes.removeWhere(
+      (e) =>
+          e.tipo == 'cumplimiento' &&
+          e.datos['dia'] == c.dia &&
+          e.datos['actividad_id'] == c.actividadId,
+    );
     if (completadasHoy == 0 && racha.dias > 0) racha.dias--;
     notifyListeners();
     _guardar();
@@ -542,10 +962,14 @@ class BrotaState extends ChangeNotifier {
     return '$prefijo-$n';
   }
 
+  /// Valida el registro, incluida la edad (13 a 35 años) y los permisos.
   String? validarRegistro({
     required String correo,
     required String password,
     required String nombre,
+    required String fechaNac,
+    bool aceptaPrivacidad = false,
+    bool consentimientoTutor = false,
   }) {
     final c = correo.trim().toLowerCase();
     if (!c.contains('@') || !c.contains('.')) {
@@ -553,6 +977,17 @@ class BrotaState extends ChangeNotifier {
     }
     if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres';
     if (nombre.trim().isEmpty) return 'Escribe tu nombre';
+    final edad = edadDe(fechaNac);
+    if (edad == null) return 'Escribe tu fecha de nacimiento (AAAA-MM-DD)';
+    if (edad < edadMinima) {
+      return 'Brota es para personas de $edadMinima años o más. '
+          'Gracias por tu interés 💚';
+    }
+    if (edad < edadMayoria && !consentimientoTutor) {
+      return 'Por tener menos de $edadMayoria años, tu madre, padre o tutor '
+          'debe dar su consentimiento';
+    }
+    if (!aceptaPrivacidad) return 'Lee y acepta el aviso de privacidad';
     if (cuenta?.correo == c) {
       return 'Ya existe una cuenta con ese correo';
     }
@@ -565,13 +1000,18 @@ class BrotaState extends ChangeNotifier {
     required String password,
     required String nombre,
     String apellidos = '',
-    String fechaNac = '',
+    required String fechaNac,
+    bool aceptaPrivacidad = false,
+    bool consentimientoTutor = false,
     Rol rol = Rol.usuario,
   }) async {
     final error = validarRegistro(
       correo: correo,
       password: password,
       nombre: nombre,
+      fechaNac: fechaNac,
+      aceptaPrivacidad: aceptaPrivacidad,
+      consentimientoTutor: consentimientoTutor,
     );
     if (error != null) return false;
     final sal = _hash(
@@ -585,8 +1025,9 @@ class BrotaState extends ChangeNotifier {
       apellidos: apellidos.trim(),
       fechaNac: fechaNac.trim(),
       rol: rol,
+      aceptoPrivacidad: aceptaPrivacidad,
+      consentimientoTutor: consentimientoTutor,
     );
-    _registrarCambio('cuenta creada');
     notifyListeners();
     await _guardar();
     return true;
@@ -597,7 +1038,6 @@ class BrotaState extends ChangeNotifier {
     final c = cuenta;
     if (c == null || c.correo != correo.trim().toLowerCase()) return false;
     if (!c.verificar(password, _hash)) return false;
-    _registrarCambio('inicio de sesión');
     notifyListeners();
     await _guardar();
     return true;
@@ -605,14 +1045,13 @@ class BrotaState extends ChangeNotifier {
 
   /// La app funciona como invitada: el núcleo no exige cuenta (RF-01/RNF-03).
   Future<void> continuarComoInvitado() async {
-    _registrarCambio('modo invitado');
     notifyListeners();
     await _guardar();
   }
 
   Future<void> cerrarSesion() async {
     cuenta = null;
-    _registrarCambio('cierre de sesión');
+    _token = null;
     notifyListeners();
     await _guardar();
   }
@@ -621,7 +1060,7 @@ class BrotaState extends ChangeNotifier {
 
   Future<void> personalizarAvatar(String emoji) async {
     avatar = emoji;
-    _registrarCambio('avatar personalizado');
+    _registrarPerfil();
     notifyListeners();
     await _guardar();
   }
@@ -629,7 +1068,7 @@ class BrotaState extends ChangeNotifier {
   Future<void> elegirMascota(String emoji, String nombre) async {
     mascota = emoji;
     mascotaNombre = nombre.trim().isEmpty ? 'Brotito' : nombre.trim();
-    _registrarCambio('mascota elegida');
+    _registrarPerfil();
     notifyListeners();
     await _guardar();
   }
@@ -650,7 +1089,6 @@ class BrotaState extends ChangeNotifier {
       duracionMin: max(1, duracionMin),
     );
     catalogo.add(m);
-    _registrarCambio('microactividad agregada');
     notifyListeners();
     await _guardar();
     return m;
@@ -670,7 +1108,6 @@ class BrotaState extends ChangeNotifier {
       esfuerzoNuevo: esfuerzo?.clamp(1, 3),
       duracionNueva: duracionMin,
     );
-    _registrarCambio('microactividad actualizada');
     notifyListeners();
     await _guardar();
   }
@@ -680,7 +1117,6 @@ class BrotaState extends ChangeNotifier {
     catalogo.removeWhere((m) => m.id == id);
     _metasHoy.remove(id);
     metasExtra.remove(id);
-    _registrarCambio('microactividad eliminada');
     notifyListeners();
     await _guardar();
   }
@@ -691,7 +1127,6 @@ class BrotaState extends ChangeNotifier {
       return;
     }
     metasExtra.add(id);
-    _registrarCambio('meta añadida desde catálogo');
     notifyListeners();
     await _guardar();
   }
@@ -711,15 +1146,25 @@ class BrotaState extends ChangeNotifier {
     } else {
       recordatorios[i] = r;
     }
-    _registrarCambio('recordatorio guardado');
     notifyListeners();
     await _guardar();
+    await _reprogramarNotificaciones();
   }
 
   Future<void> eliminarRecordatorio(String id) async {
     recordatorios.removeWhere((r) => r.id == id);
     notifyListeners();
     await _guardar();
+    await _reprogramarNotificaciones();
+  }
+
+  /// Actor «Servicio de notificaciones»: programa los avisos en Android.
+  Future<void> _reprogramarNotificaciones() async {
+    await _notificador?.programar(
+      recordatorios,
+      suave: modoRecordatorioSuave,
+      nombreMascota: mascotaNombre,
+    );
   }
 
   // ------------------------- CU-11 / CU-19 Directorio de ayuda ------------
@@ -741,7 +1186,6 @@ class BrotaState extends ChangeNotifier {
       categoria: categoria,
     );
     recursos.add(r);
-    _registrarCambio('recurso agregado');
     notifyListeners();
     await _guardar();
     return r;
@@ -750,19 +1194,28 @@ class BrotaState extends ChangeNotifier {
   Future<void> eliminarRecurso(String id) async {
     if (!esAdmin) throw StateError('Solo el administrador puede hacerlo');
     recursos.removeWhere((r) => r.id == id);
-    _registrarCambio('recurso eliminado');
     notifyListeners();
     await _guardar();
   }
 
   // ----------------------- CU-12 / CU-19 Mensajes validados ---------------
 
+  /// CU-19 con CU-19a: antes de guardar, el mensaje pasa por el diccionario
+  /// de palabras clave. Si no resulta «motivadora», se rechaza con el motivo.
   Future<MensajeValidado> agregarMensaje({
     required String texto,
     String categoria = 'Aliento',
     String validadoPor = 'Equipo Brota',
   }) async {
     if (!esAdmin) throw StateError('Solo el administrador puede hacerlo');
+    final c = ClasificadorFrases.clasificar(texto);
+    if (!c.esMotivadora) {
+      throw FormatException(
+        'El diccionario la clasifica como «${c.categoria.texto}» '
+        '(puntaje ${c.puntaje}). Reescríbela describiendo el paso o el '
+        'descanso, sin «debes» ni comparaciones.',
+      );
+    }
     final m = MensajeValidado(
       id: _nuevoId('msg'),
       texto: texto.trim(),
@@ -770,7 +1223,6 @@ class BrotaState extends ChangeNotifier {
       validadoPor: validadoPor,
     );
     mensajes.add(m);
-    _registrarCambio('mensaje validado agregado');
     notifyListeners();
     await _guardar();
     return m;
@@ -779,28 +1231,137 @@ class BrotaState extends ChangeNotifier {
   Future<void> eliminarMensaje(String id) async {
     if (!esAdmin) throw StateError('Solo el administrador puede hacerlo');
     mensajes.removeWhere((m) => m.id == id);
-    _registrarCambio('mensaje eliminado');
     notifyListeners();
     await _guardar();
   }
 
   // --------------------------- CU-14 Muro de aliento ----------------------
 
-  Future<Publicacion> publicarAliento(String texto) async {
-    final t = texto.trim();
-    if (t.isEmpty || t.length > 240) {
-      throw const FormatException('Escribe entre 1 y 240 caracteres');
+  /// CU-14: solo se publican frases predefinidas (no hay texto libre).
+  Future<Publicacion> publicarFrase(String fraseId) async {
+    final frase = frasesMuro.where((f) => f.id == fraseId).firstOrNull;
+    if (frase == null) {
+      throw const FormatException('Elige una de las frases del muro');
+    }
+    final api = _api;
+    if (api != null) {
+      try {
+        await api.publicarFrase(fraseId);
+        await cargarComunidad();
+        return publicaciones.first;
+      } on ErrorApi {
+        // Sin red: se publica en el muro local.
+      }
     }
     final p = Publicacion(
       id: _nuevoId('pub'),
-      contenido: t,
+      contenido: frase.texto,
       fecha: claveDia(hoy),
     );
     publicaciones.insert(0, p);
-    _registrarCambio('mensaje de aliento publicado');
     notifyListeners();
     await _guardar();
     return p;
+  }
+
+  /// CU-14: compartir el logro anónimo (racha y Exp) en el muro.
+  Future<Publicacion> publicarLogro() async {
+    final api = _api;
+    if (api != null) {
+      try {
+        await api.publicarLogro(racha.dias, xpTotal);
+        await cargarComunidad();
+        return publicaciones.first;
+      } on ErrorApi {
+        // Sin red: se publica en el muro local.
+      }
+    }
+    final p = Publicacion(
+      id: _nuevoId('pub'),
+      contenido: logroCompartible,
+      fecha: claveDia(hoy),
+      esLogro: true,
+    );
+    publicaciones.insert(0, p);
+    notifyListeners();
+    await _guardar();
+    return p;
+  }
+
+  /// Con servidor, el muro es el compartido por todos los usuarios.
+  Future<void> cargarComunidad() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      final lista = await api.publicaciones();
+      publicaciones
+        ..clear()
+        ..addAll(lista);
+      notifyListeners();
+      await _guardar();
+    } on ErrorApi {
+      // Se queda el último muro conocido.
+    }
+  }
+
+  /// CU-23 Reportar publicación: se oculta de inmediato para quien reporta
+  /// y queda en la lista de revisión del Administrador.
+  Future<void> reportarPublicacion(Publicacion p, String motivo) async {
+    publicacionesOcultas.add(p.id);
+    final api = _api;
+    var enviado = false;
+    if (api != null && p.id.startsWith('srv-')) {
+      try {
+        await api.reportar(p.id, motivo);
+        enviado = true;
+      } on ErrorApi {
+        enviado = false;
+      }
+    }
+    if (!enviado) {
+      reportes.add(
+        ReportePublicacion(
+          id: _nuevoId('rep'),
+          publicacionId: p.id,
+          texto: p.contenido,
+          motivo: motivo,
+          fecha: _hoyClave,
+        ),
+      );
+    }
+    notifyListeners();
+    await _guardar();
+  }
+
+  /// CU-24 Moderar reportes (Administrador). Con servidor trae también los
+  /// reportes de todos los usuarios.
+  Future<void> cargarReportesServidor() async {
+    final api = _api;
+    if (api == null || rolServidor != 'administrador') return;
+    try {
+      final lista = await api.reportesPendientes();
+      reportes.removeWhere((r) => r.id.startsWith('srv-'));
+      reportes.addAll(lista);
+      notifyListeners();
+    } on ErrorApi {
+      // Sin red: solo los reportes locales.
+    }
+  }
+
+  Future<void> resolverReporte(ReportePublicacion r, {required bool ocultar}) async {
+    if (!esAdmin) throw StateError('Solo el administrador puede hacerlo');
+    final api = _api;
+    if (api != null && r.id.startsWith('srv-')) {
+      await api.resolverReporte(r.id, ocultar);
+    }
+    r.estado = ocultar ? 'oculta' : 'mantenida';
+    if (ocultar) {
+      publicaciones.removeWhere((p) => p.id == r.publicacionId);
+    } else {
+      publicacionesOcultas.remove(r.publicacionId);
+    }
+    notifyListeners();
+    await _guardar();
   }
 
   // -------------------------------- CU-17 Exportar historial PDF ----------
@@ -840,24 +1401,132 @@ class BrotaState extends ChangeNotifier {
 
   // --------------------------- RNF-07 Sincronización ----------------------
 
-  void _registrarCambio(String operacion) {
+  /// UUID v4 generado en el dispositivo: el servidor lo usa para no
+  /// duplicar registros si el mismo cambio se envía dos veces.
+  static String nuevoUuid() {
+    final r = Random.secure();
+    final b = List<int>.generate(16, (_) => r.nextInt(256));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+        '${h.substring(16, 20)}-${h.substring(20)}';
+  }
+
+  void _registrarCambio(String tipo, Map<String, dynamic> datos) {
     cambiosPendientes.add(
       EntradaSincronizacion(
-        id: _nuevoId('sync'),
-        operacion: operacion,
+        id: nuevoUuid(),
+        tipo: tipo,
         fecha: _ahora().toIso8601String(),
+        datos: datos,
       ),
     );
     datosSincronizados = false;
+    if (conectado) _programarSync();
   }
 
-  /// Sin servidor, la "sincronización" confirma la cola local sin duplicar.
-  /// Al haber red, aquí se enviarían las entradas y se borrarían tras el ACK.
-  Future<void> sincronizar() async {
-    cambiosPendientes.clear();
-    datosSincronizados = true;
+  void _registrarPerfil() => _registrarCambio('perfil', {
+    'avatar': avatar,
+    'mascota': mascota,
+    'mascota_nombre': mascotaNombre,
+    'xp_total': xpTotal,
+  });
+
+  /// Agrupa los cambios de unos segundos en un solo envío.
+  void _programarSync() {
+    _temporizadorSync?.cancel();
+    _temporizadorSync = Timer(const Duration(seconds: 3), () {
+      sincronizar();
+    });
+  }
+
+  /// RNF-07: envía la cola al servidor. Cada evento lleva su UUID, así que
+  /// reenviar no duplica nada; solo se borra de la cola lo que el servidor
+  /// confirmó. Sin servidor o sin red, la cola se conserva cifrada aquí.
+  Future<String> sincronizar() async {
+    final api = _api;
+    if (api == null) {
+      return cambiosPendientes.isEmpty
+          ? 'Todo está guardado en este dispositivo'
+          : 'Sin servidor conectado: ${cambiosPendientes.length} cambio(s) '
+                'siguen guardados y cifrados aquí';
+    }
+    final lote = [
+      for (final c in cambiosPendientes)
+        if (tiposSincronizables.contains(c.tipo)) c,
+    ];
+    try {
+      final r = lote.isEmpty
+          ? const ResultadoSync(aceptados: [], duplicados: [], rechazados: [])
+          : await api.sincronizar(lote);
+      final hechos = {...r.aceptados, ...r.duplicados, ...r.rechazados};
+      cambiosPendientes.removeWhere(
+        (c) => hechos.contains(c.id) || !tiposSincronizables.contains(c.tipo),
+      );
+      datosSincronizados = cambiosPendientes.isEmpty;
+      ultimaSincronizacion = _ahora().toIso8601String();
+      notifyListeners();
+      await _guardar();
+      return 'Sincronizado: ${r.aceptados.length} nuevo(s), '
+          '${r.duplicados.length} ya estaban en el servidor';
+    } on ErrorApi catch (e) {
+      return '${e.mensaje}. Tus cambios siguen guardados y se enviarán después';
+    }
+  }
+
+  /// Conecta la cuenta local con el servidor: inicia sesión y, si la cuenta
+  /// no existe allá, la crea con los mismos datos. Devuelve null si se pudo.
+  Future<String?> conectarServidor(String url, String password) async {
+    final c = cuenta;
+    if (c == null) return 'Primero crea tu cuenta en «Mi perfil»';
+    if (url.trim().isEmpty) return 'Escribe la dirección del servidor';
+    if (!c.verificar(password, _hash)) return 'La contraseña no coincide';
+    final api = ServicioApi(url, cliente: _clienteHttp);
+    try {
+      await api.salud();
+      SesionApi sesion;
+      try {
+        sesion = await api.login(c.correo, password);
+      } on ErrorApi catch (e) {
+        if (e.codigo != 401) rethrow;
+        sesion = await api.registro(
+          correo: c.correo,
+          password: password,
+          nombre: c.nombre,
+          fechaNac: c.fechaNac,
+          aceptaPrivacidad: c.aceptoPrivacidad,
+          consentimientoTutor: c.consentimientoTutor,
+        );
+      }
+      servidorUrl = url.trim();
+      _token = sesion.token;
+      rolServidor = sesion.rol;
+      notifyListeners();
+      await _guardar();
+      await sincronizar();
+      await refrescarFantasma();
+      await cargarComunidad();
+      return null;
+    } on ErrorApi catch (e) {
+      return e.mensaje;
+    }
+  }
+
+  Future<void> desconectarServidor() async {
+    _temporizadorSync?.cancel();
+    servidorUrl = '';
+    _token = null;
+    rolServidor = 'usuario';
+    _senalesServidor = [];
     notifyListeners();
     await _guardar();
+  }
+
+  @override
+  void dispose() {
+    _temporizadorSync?.cancel();
+    super.dispose();
   }
 
   // -------------------------------------------------------- persistencia ---
@@ -879,7 +1548,7 @@ class BrotaState extends ChangeNotifier {
   }
 
   Map<String, dynamic> _aJson() => {
-    'version': 2,
+    'version': 3,
     'xpTotal': xpTotal,
     'racha': racha.toJson(),
     'tareas': [for (final t in tareas) t.toJson()],
@@ -908,6 +1577,20 @@ class BrotaState extends ChangeNotifier {
     'cambiosPendientes': [for (final c in cambiosPendientes) c.toJson()],
     'datosSincronizados': datosSincronizados,
     'contadores': _contadores,
+    'perceptron': perceptron.toJson(),
+    'predicciones': [for (final p in predicciones.values) p.toJson()],
+    'diasEscudo': diasEscudo.toList(),
+    'primerDia': _primerDia,
+    'interacciones': [for (final i in interacciones) i.toJson()],
+    'senalesRespondidas': senalesRespondidas.toList(),
+    'semillas': semillas,
+    'decoraciones': decoracionesCompradas,
+    'reportes': [for (final r in reportes) r.toJson()],
+    'publicacionesOcultas': publicacionesOcultas.toList(),
+    'servidorUrl': servidorUrl,
+    'token': _token,
+    'rolServidor': rolServidor,
+    'ultimaSincronizacion': ultimaSincronizacion,
   };
 
   void _cargar(Map<String, dynamic> j) {
@@ -996,10 +1679,13 @@ class BrotaState extends ChangeNotifier {
         ..addAll(publicacionesGuardadas);
     }
 
+    // Las entradas de la versión 2 no tenían tipo: no se pueden enviar.
     cambiosPendientes
       ..clear()
       ..addAll(
-        lista('cambiosPendientes').map(EntradaSincronizacion.fromJson),
+        lista('cambiosPendientes')
+            .where((c) => c['tipo'] is String)
+            .map(EntradaSincronizacion.fromJson),
       );
     datosSincronizados = j['datosSincronizados'] as bool? ?? true;
     _contadores.clear();
@@ -1008,5 +1694,52 @@ class BrotaState extends ChangeNotifier {
         _contadores[entry.key as String] = entry.value as int;
       }
     }
+    List<String> textos(String k) => ((j[k] as List?) ?? []).cast<String>();
+
+    if (racha.congelamientos > congelamientosPorSemana) {
+      racha.congelamientos = congelamientosPorSemana; // antes eran 2
+    }
+    if (j['perceptron'] is Map) {
+      perceptron = PerceptronRiesgo.fromJson(
+        (j['perceptron'] as Map).cast<String, dynamic>(),
+      );
+    }
+    predicciones.clear();
+    for (final p in lista('predicciones').map(PrediccionRiesgo.fromJson)) {
+      predicciones[p.dia] = p;
+    }
+    diasEscudo
+      ..clear()
+      ..addAll(textos('diasEscudo'));
+    _primerDia = j['primerDia'] as String?;
+    if (_primerDia == null) {
+      // Datos de la versión 2: el primer día es el registro más antiguo.
+      final dias = [
+        for (final c in cumplimientos) c.dia,
+        ...animos.keys,
+        ...descansos,
+      ]..sort();
+      _primerDia = dias.isEmpty ? null : dias.first;
+    }
+    interacciones
+      ..clear()
+      ..addAll(lista('interacciones').map(InteraccionFantasma.fromJson));
+    senalesRespondidas
+      ..clear()
+      ..addAll(textos('senalesRespondidas'));
+    semillas = j['semillas'] as int? ?? xpTotal;
+    decoracionesCompradas
+      ..clear()
+      ..addAll(textos('decoraciones'));
+    reportes
+      ..clear()
+      ..addAll(lista('reportes').map(ReportePublicacion.fromJson));
+    publicacionesOcultas
+      ..clear()
+      ..addAll(textos('publicacionesOcultas'));
+    servidorUrl = j['servidorUrl'] as String? ?? '';
+    _token = j['token'] as String?;
+    rolServidor = j['rolServidor'] as String? ?? 'usuario';
+    ultimaSincronizacion = j['ultimaSincronizacion'] as String?;
   }
 }

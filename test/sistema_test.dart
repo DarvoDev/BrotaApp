@@ -59,21 +59,23 @@ void main() {
     test('valida correo, contraseña y nombre; distingue al administrador', () async {
       final (e, _, _) = await _estado();
       expect(
-        e.validarRegistro(correo: 'x', password: '123456', nombre: 'Ana'),
+        e.validarRegistro(correo: 'x', password: '123456', nombre: 'Ana', fechaNac: '2000-01-01', aceptaPrivacidad: true),
         isNotNull,
       );
       expect(
-        e.validarRegistro(correo: 'a@b.com', password: '123', nombre: 'Ana'),
+        e.validarRegistro(correo: 'a@b.com', password: '123', nombre: 'Ana', fechaNac: '2000-01-01', aceptaPrivacidad: true),
         isNotNull,
       );
       expect(
-        e.validarRegistro(correo: 'a@b.com', password: '123456', nombre: 'Ana'),
+        e.validarRegistro(correo: 'a@b.com', password: '123456', nombre: 'Ana', fechaNac: '2000-01-01', aceptaPrivacidad: true),
         isNull,
       );
 
       final ok = await e.registrarse(
         correo: ' ana@brota.mx ',
         password: 'secreto123',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
         nombre: 'Ana',
         apellidos: 'Pérez',
         rol: Rol.administrador,
@@ -90,6 +92,8 @@ void main() {
       await e.registrarse(
         correo: 'ana@brota.mx',
         password: 'secreto123',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
         nombre: 'Ana',
       );
       expect(await e.iniciarSesion('ana@brota.mx', 'mala'), isFalse);
@@ -98,7 +102,7 @@ void main() {
       await e.cerrarSesion();
       expect(e.tieneCuenta, isFalse);
       await e.continuarComoInvitado();
-      expect(e.datosSincronizados, isFalse);
+      expect(e.tieneCuenta, isFalse);
     });
   });
 
@@ -176,6 +180,8 @@ void main() {
       await e.registrarse(
         correo: 'admin@brota.mx',
         password: 'secreto123',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
         nombre: 'Sistema',
         rol: Rol.administrador,
       );
@@ -198,24 +204,34 @@ void main() {
       await e.registrarse(
         correo: 'admin@brota.mx',
         password: 'secreto123',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
         nombre: 'Sistema',
         rol: Rol.administrador,
       );
       final m = await e.agregarMensaje(texto: 'Hoy puedes volver 💛');
       expect(e.mensajes.map((x) => x.id), contains(m.id));
+      // CU-19a: el diccionario rechaza frases de culpa o comparación.
+      expect(
+        () => e.agregarMensaje(texto: 'Deberías esforzarte más, no hay excusas'),
+        throwsFormatException,
+      );
       await e.eliminarMensaje(m.id);
       expect(e.mensajes.any((x) => x.id == m.id), isFalse);
     });
   });
 
   group('CU-14 Compartir logros y aliento', () {
-    test('publica de forma anónima y valida el texto', () async {
+    test('solo publica frases predefinidas o logros, de forma anónima', () async {
       final (e, _, _) = await _estado();
       final antes = e.publicaciones.length;
-      expect(() => e.publicarAliento('   '), throwsFormatException);
-      final p = await e.publicarAliento('Hoy volví, y eso cuenta 💛');
+      expect(() => e.publicarFrase('texto libre'), throwsFormatException);
+      final p = await e.publicarFrase(frasesMuro.first.id);
       expect(e.publicaciones.length, antes + 1);
       expect(e.publicaciones.first.id, p.id);
+      expect(p.contenido, frasesMuro.first.texto);
+      final l = await e.publicarLogro();
+      expect(l.esLogro, isTrue);
       expect(e.logroCompartible, contains('Exp'));
     });
   });
@@ -263,6 +279,8 @@ void main() {
       await e.registrarse(
         correo: 'admin@brota.mx',
         password: 'secreto123',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
         nombre: 'Sistema',
         rol: Rol.administrador,
       );
@@ -280,21 +298,22 @@ void main() {
   });
 
   group('RNF-07 Sincronización diferida', () {
-    test('encola cambios una vez y los limpia al sincronizar', () async {
-      final (e, almacen, _) = await _estado();
+    test('sin servidor la cola se conserva cifrada y sobrevive al reinicio', () async {
+      final (e, almacen, reloj) = await _estado();
       await e.crearTarea('Ordenar el escritorio', 'Hogar', 1);
       await e.crearTarea('Ordenar el escritorio 2', 'Hogar', 1);
       expect(e.hayCambiosPendientes, isTrue);
-      final n = e.cambiosPendientes.length;
-      await e.sincronizar();
-      expect(e.cambiosPendientes, isEmpty);
-      expect(e.datosSincronizados, isTrue);
+      expect(e.cambiosPendientes.map((c) => c.tipo), everyElement('tarea'));
+      final ids = e.cambiosPendientes.map((c) => c.id).toSet();
+      expect(ids.length, 2); // UUID distintos
+      final mensaje = await e.sincronizar();
+      expect(mensaje, contains('Sin servidor'));
+      expect(e.cambiosPendientes.length, 2);
 
-      final otro = BrotaState(almacen: almacen);
+      final otro = BrotaState(almacen: almacen, ahora: reloj.call);
       await otro.iniciar();
-      expect(otro.cambiosPendientes, isEmpty);
+      expect(otro.cambiosPendientes.map((c) => c.id).toSet(), ids);
       expect(otro.tareas.length, 2);
-      expect(n, greaterThanOrEqualTo(2));
     });
   });
 }

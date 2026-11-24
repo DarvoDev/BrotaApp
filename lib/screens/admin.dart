@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../logic/clasificador.dart';
 import '../main.dart';
 import '../models/modelos.dart';
 import '../state/brota_state.dart';
 import '../theme.dart';
 
 /// CU-18 y CU-19: mantener catálogo, mensajes validados y directorio.
+/// CU-19a: cada mensaje nuevo se clasifica con el diccionario de palabras
+/// clave. CU-24: revisar los reportes del muro.
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
 
@@ -26,6 +29,15 @@ class _AdminScreenState extends State<AdminScreen> {
   final _recursoDescripcion = TextEditingController();
   final _recursoCategoria = TextEditingController(text: 'Ayuda');
   bool _esEmergencia = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _mensajeTexto.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BrotaScope.of(context).cargarReportesServidor();
+    });
+  }
 
   @override
   void dispose() {
@@ -127,6 +139,8 @@ class _AdminScreenState extends State<AdminScreen> {
       _avisar('Mensaje validado y listo para compartir 💚');
     } on StateError {
       _avisar('Esta sección es solo del equipo Brota');
+    } on FormatException catch (e) {
+      _avisar(e.message);
     }
   }
 
@@ -238,6 +252,8 @@ class _AdminScreenState extends State<AdminScreen> {
               _seccionMensajes(estado, e),
               _titulo('Directorio de ayuda', e),
               _seccionRecursos(estado, e),
+              _titulo('Reportes del muro', e),
+              _seccionReportes(estado, e),
             ],
           ],
         ),
@@ -372,6 +388,10 @@ class _AdminScreenState extends State<AdminScreen> {
               hintText: 'Un pasito a la vez también es avanzar 🌱',
             ),
           ),
+          if (_mensajeTexto.text.trim().isNotEmpty)
+            _VistaClasificacion(
+              ClasificadorFrases.clasificar(_mensajeTexto.text),
+            ),
           const SizedBox(height: 10),
           TextField(
             controller: _mensajeCategoria,
@@ -524,6 +544,91 @@ class _FilaAdmin extends StatelessWidget {
               icon: Icon(Icons.close, size: 20, color: e.onSurfaceVariant),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+extension _Reportes on _AdminScreenState {
+  Widget _seccionReportes(BrotaState estado, ColorScheme e) {
+    final pendientes = estado.reportesPendientes;
+    return Tarjeta(
+      child: pendientes.isEmpty
+          ? Text(
+              'No hay reportes pendientes 🌿',
+              style: TextStyle(color: e.onSurfaceVariant),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final r in pendientes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('«${r.texto}»'),
+                        Text(
+                          '${r.motivo} · ${r.fecha}',
+                          style: TextStyle(color: e.onSurfaceVariant, fontSize: 12.5),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            FilledButton.tonal(
+                              onPressed: () => estado.resolverReporte(r, ocultar: true),
+                              child: const Text('Ocultar para todos'),
+                            ),
+                            OutlinedButton(
+                              onPressed: () => estado.resolverReporte(r, ocultar: false),
+                              child: const Text('Mantener'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Muestra cómo clasifica el diccionario la frase que se está escribiendo.
+class _VistaClasificacion extends StatelessWidget {
+  const _VistaClasificacion(this.c);
+
+  final Clasificacion c;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = Theme.of(context).colorScheme;
+    final color = c.esMotivadora ? e.primary : e.error;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Diccionario: ${c.categoria.texto} · estilo ${c.estilo} · puntaje ${c.puntaje}',
+            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          if (c.coincidencias.isNotEmpty)
+            Text(
+              c.coincidencias
+                  .map((m) => '${m.termino} (${m.peso >= 0 ? '+' : ''}${m.peso})')
+                  .join(' · '),
+              style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),
+            ),
+          if (c.esMotivadora && !c.implicita)
+            Text(
+              'Sugerencia: el equipo prefiere mensajes implícitos (que describan '
+              'el paso, no que den órdenes).',
+              style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),
+            ),
         ],
       ),
     );

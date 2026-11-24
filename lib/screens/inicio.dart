@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../data/catalogo.dart';
 import '../main.dart';
 import '../models/modelos.dart';
 import '../state/brota_state.dart';
 import '../theme.dart';
 import 'animo_sheet.dart';
 import 'nueva_tarea.dart';
+import 'riesgo.dart';
 
 class InicioScreen extends StatelessWidget {
   const InicioScreen({super.key, required this.irASos});
@@ -21,17 +23,20 @@ class InicioScreen extends StatelessWidget {
     }
     final r = estado.completarActividad(a);
     if (r == null) return;
+    // Motivación implícita: se cuenta lo que pasó en el jardín.
+    final aviso = avisosCompletar[estado.cumplimientos.length % avisosCompletar.length];
+    final String texto;
+    if (r.subioNivel) {
+      texto = 'Brotito creció al nivel ${r.nivel} 🎉';
+    } else if (r.subioMascota) {
+      texto = '${estado.mascotaNombre} creció al nivel ${r.nivelMascota} 🐾';
+    } else {
+      texto = '$aviso 🌿 +${r.xp} Exp';
+    }
     mensajes
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 2),
-          content: Text(
-            r.subioNivel
-                ? '¡Brotito subió al nivel ${r.nivel}! 🎉'
-                : '¡Bien hecho! +${r.xp} Exp 💚',
-          ),
-        ),
+        SnackBar(duration: const Duration(seconds: 2), content: Text(texto)),
       );
   }
 
@@ -109,6 +114,14 @@ class InicioScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _AvisoCierre(cierre: cierre, estado: estado),
         ],
+        if (estado.riesgoAltoHoy) ...[
+          const SizedBox(height: 12),
+          _AvisoRiesgo(estado: estado),
+        ],
+        if (estado.reaccionesNuevas.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ReaccionesRecibidas(estado: estado),
+        ],
         if (estado.sugerirRecursos) ...[
           const SizedBox(height: 12),
           Tarjeta(
@@ -180,9 +193,36 @@ class InicioScreen extends StatelessWidget {
                 '${estado.xpEnNivel} / $xpPorNivel Exp',
                 style: TextStyle(color: e.onSurfaceVariant, fontSize: 14),
               ),
+              const Divider(height: 24),
+              Row(
+                children: [
+                  Text(
+                    emojiMascota(estado.mascota, estado.estadoMascota),
+                    style: const TextStyle(fontSize: 30),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${estado.mascotaNombre} · Nivel ${estado.nivelMascota}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          estado.fraseMascota,
+                          style: TextStyle(color: e.onSurfaceVariant, fontSize: 13.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        _CompaneroFantasma(estado: estado),
         const TituloSeccion('Misiones de hoy'),
         Tarjeta(
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -374,6 +414,178 @@ class _FilaActividad extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Perceptrón: aviso amable cuando predijo riesgo ALTO para hoy (CU-20).
+class _AvisoRiesgo extends StatelessWidget {
+  const _AvisoRiesgo({required this.estado});
+
+  final BrotaState estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = Theme.of(context).colorScheme;
+    return Tarjeta(
+      color: e.secondary.withValues(alpha: 0.18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Hoy, misiones más ligeras 🌤️',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Por cómo han ido tus últimos días, Brota preparó misiones cortas '
+            'para que tu racha y tu mascota estén a salvo. Si te nace más, el '
+            'catálogo sigue abierto.',
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No es un diagnóstico: solo ajusta la dificultad dentro de la app.',
+            style: TextStyle(color: e.onSurfaceVariant, fontSize: 12.5),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RiesgoScreen()),
+              ),
+              child: const Text('¿Cómo lo decide?'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Reacciones que llegaron del compañero fantasma.
+class _ReaccionesRecibidas extends StatelessWidget {
+  const _ReaccionesRecibidas({required this.estado});
+
+  final BrotaState estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = Theme.of(context).colorScheme;
+    final nuevas = estado.reaccionesNuevas;
+    final simulada = nuevas.any((i) => i.simulada);
+    return Tarjeta(
+      color: e.primaryContainer,
+      child: Row(
+        children: [
+          const Text('💌', style: TextStyle(fontSize: 26)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final i in nuevas)
+                  Text(
+                    'Alguien te mandó: ${reaccionesFantasma[i.reaccion] ?? i.reaccion}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                if (simulada)
+                  Text(
+                    'Señal de ejemplo: sin servidor conectado.',
+                    style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: estado.marcarReaccionesVistas,
+            child: const Text('Gracias'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compañero fantasma anónimo: no es un chat, solo señales y reacciones
+/// predefinidas, sin perfiles ni comparación.
+class _CompaneroFantasma extends StatelessWidget {
+  const _CompaneroFantasma({required this.estado});
+
+  final BrotaState estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = Theme.of(context).colorScheme;
+    final senales = estado.senalesFantasma;
+    if (senales.isEmpty) {
+      return Tarjeta(
+        child: Row(
+          children: [
+            const Text('🌍', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Cuando alguien en el mundo complete su misión, te aviso aquí.',
+                style: TextStyle(color: e.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final s = senales.first;
+    final hace = s.haceMinutos < 60
+        ? 'hace ${s.haceMinutos} min'
+        : 'hace ${s.haceMinutos ~/ 60} h';
+    return Tarjeta(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🌍', style: TextStyle(fontSize: 24)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Alguien en el mundo completó su misión de hoy · $hace',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final r in reaccionesFantasma.entries)
+                ActionChip(
+                  label: Text(r.value),
+                  onPressed: () async {
+                    await estado.reaccionarASenal(s, r.key);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(content: Text('Enviaste «${r.value}» 💚')),
+                      );
+                  },
+                ),
+            ],
+          ),
+          if (senales.length > 1 || s.simulada) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (senales.length > 1) '${senales.length - 1} persona(s) más también avanzaron hoy.',
+                if (s.simulada) 'Señales de ejemplo: sin servidor conectado.',
+              ].join(' '),
+              style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),
+            ),
+          ],
+        ],
       ),
     );
   }

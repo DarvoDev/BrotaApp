@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'models/modelos.dart';
 
 /// Paleta del prototipo «Brotito · App de apoyo emocional.html».
 ThemeData temaBrota(Brightness brillo) {
@@ -142,3 +143,10 @@ String emojiBrotito(int nivel) {
 const _meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 String fechaCorta(DateTime d) => '${d.day} ${_meses[d.month - 1]} ${d.year}';
+
+/// La mascota cambia de ánimo, pero nunca muere ni pierde nivel.
+String emojiMascota(String mascota, EstadoMascota estado) => switch (estado) {
+  EstadoMascota.feliz => mascota,
+  EstadoMascota.somnolienta => '$mascota💤',
+  EstadoMascota.triste => '$mascota💧',
+};

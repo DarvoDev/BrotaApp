@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "descripcion": "Diccionario de palabras clave de Brota para clasificar si una frase es motivadora, neutra, no apta o de riesgo. Regla: se normaliza el texto (minusculas, sin acentos, sin signos), se buscan los terminos de mayor a menor longitud y cada palabra del texto solo puede usarse en un termino (asi 'no tienes que' no cuenta tambien como 'tienes que'). Un termino que termina en * coincide con cualquier palabra que empiece igual.",
+  "umbrales": {
+    "motivadora_minimo": 2,
+    "no_apta_maximo": -1
+  },
+  "reglas": [
+    "1. Si hay un termino de 'riesgo' -> categoria 'riesgo': no se publica y se muestra el boton S.O.S. y el directorio de ayuda.",
+    "2. Si hay un termino 'ofensiva' -> categoria 'no_apta'.",
+    "3. puntaje = suma de pesos de los terminos encontrados.",
+    "4. puntaje >= 2 -> 'motivadora'; puntaje <= -1 -> 'no_apta'; en otro caso -> 'neutra'.",
+    "5. estilo = 'explicito' si hay algun termino de 'exhortacion_explicita'; si no, 'implicito'."
+  ],
+  "categorias": {
+    "riesgo": {
+      "peso": 0,
+      "bloquea": true,
+      "terminos": [
+        "suicid*",
+        "matarme",
+        "quitarme la vida",
+        "no quiero vivir",
+        "quiero morir*",
+        "morirme",
+        "hacerme dano",
+        "lastimarme",
+        "cortarme",
+        "desaparecer para siempre",
+        "acabar con todo",
+        "no vale la pena vivir"
+      ]
+    },
+    "ofensiva": {
+      "peso": 0,
+      "bloquea": true,
+      "terminos": [
+        "idiota*",
+        "estupid*",
+        "imbecil*",
+        "pendej*",
+        "inutil*",
+        "basura",
+        "asco",
+        "perdedor*",
+        "fracasad*",
+        "callate",
+        "odio*"
+      ]
+    },
+    "presion_culpa": {
+      "peso": -2,
+      "terminos": [
+        "debes",
+        "deberias",
+        "tienes que",
+        "es tu obligacion",
+        "no hay excusas",
+        "sin excusas",
+        "flojo*",
+        "floj*",
+        "vago*",
+        "verguenza",
+        "culpa",
+        "fracaso*",
+        "sin dolor no hay",
+        "siempre fallas",
+        "nunca cumples",
+        "ya deberias"
+      ]
+    },
+    "comparacion": {
+      "peso": -2,
+      "terminos": [
+        "mejor que",
+        "peor que",
+        "los demas si",
+        "otros si",
+        "como los demas",
+        "ranking",
+        "ganarle a",
+        "quedarte atras"
+      ]
+    },
+    "positividad_toxica": {
+      "peso": -1,
+      "terminos": [
+        "solo piensa positivo",
+        "piensa positivo",
+        "no estes triste",
+        "deja de quejarte",
+        "todo pasa por algo",
+        "sonrie",
+        "no es para tanto",
+        "echale ganas"
+      ]
+    },
+    "exhortacion_explicita": {
+      "peso": 1,
+      "terminos": [
+        "tu puedes",
+        "no te rindas",
+        "animo",
+        "vamos",
+        "sigue asi",
+        "bien hecho",
+        "lo lograras",
+        "eres increible"
+      ]
+    },
+    "proceso_logro": {
+      "peso": 2,
+      "terminos": [
+        "paso*",
+        "pasito*",
+        "avanz*",
+        "avance*",
+        "progreso",
+        "logr*",
+        "constancia",
+        "intent*",
+        "crec*",
+        "brot*",
+        "florec*",
+        "hoja nueva",
+        "aprend*",
+        "empez*",
+        "volv*",
+        "sigue aqui",
+        "sigues aqui",
+        "cuenta",
+        "suma"
+      ]
+    },
+    "autocuidado_descanso": {
+      "peso": 2,
+      "terminos": [
+        "descans*",
+        "cuidarte",
+        "cuidandote",
+        "respir*",
+        "a tu ritmo",
+        "poco a poco",
+        "sin prisa",
+        "no tienes que",
+        "esta bien",
+        "con calma",
+        "pedir ayuda",
+        "pediste ayuda",
+        "no es tu culpa"
+      ]
+    },
+    "acompanamiento": {
+      "peso": 1,
+      "terminos": [
+        "contigo",
+        "junt*",
+        "acompan*",
+        "alguien mas",
+        "no estas solo",
+        "no estas sola",
+        "tambien",
+        "aqui"
+      ]
+    }
+  },
+  "ejemplos": [
+    {
+      "texto": "Un paso pequeno sigue siendo avanzar",
+      "esperado": "motivadora",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "No tienes que hacerlo perfecto, solo empezar",
+      "esperado": "motivadora",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "Tu puedes, no te rindas",
+      "esperado": "motivadora",
+      "estilo": "explicito"
+    },
+    {
+      "texto": "Deberias esforzarte mas, no hay excusas",
+      "esperado": "no_apta",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "Los demas si pudieron, tu eres un flojo",
+      "esperado": "no_apta",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "Hoy comi a las tres",
+      "esperado": "neutra",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "Ya no quiero vivir",
+      "esperado": "riesgo",
+      "estilo": "implicito"
+    },
+    {
+      "texto": "Descansar tambien cuenta, no es tu culpa",
+      "esperado": "motivadora",
+      "estilo": "implicito"
+    }
+  ]
+}

@@ -7,12 +7,16 @@ import 'screens/mas.dart';
 import 'screens/rachas.dart';
 import 'screens/sos.dart';
 import 'services/almacen.dart';
+import 'services/notificaciones.dart';
 import 'state/brota_state.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final estado = BrotaState(almacen: AlmacenPrefs());
+  final estado = BrotaState(
+    almacen: AlmacenPrefs(),
+    notificador: NotificadorLocal(),
+  );
   await estado.iniciar();
   runApp(BrotaApp(estado: estado));
 }
