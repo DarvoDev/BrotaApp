@@ -83,7 +83,12 @@ class InicioScreen extends StatelessWidget {
           children: [
             Expanded(
               child: _Dato(
-                icono: '🔥',
+                icono: Image.asset(
+                  'lib/assets/images/Racha.gif',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                ),
                 valor: estado.racha.dias == 1 ? '1 día' : '${estado.racha.dias} días',
                 detalle: 'de racha',
               ),
@@ -91,7 +96,12 @@ class InicioScreen extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _Dato(
-                icono: '🛡️',
+                icono: Image.asset(
+                  'lib/assets/images/Escudo.jpg',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                ),
                 valor: estado.racha.congelamientos == 1
                     ? '1 escudo'
                     : '${estado.racha.congelamientos} escudos',
@@ -276,7 +286,7 @@ class InicioScreen extends StatelessWidget {
 class _Dato extends StatelessWidget {
   const _Dato({required this.icono, required this.valor, required this.detalle});
 
-  final String icono;
+  final Widget icono;
   final String valor;
   final String detalle;
 
@@ -284,7 +294,7 @@ class _Dato extends StatelessWidget {
   Widget build(BuildContext context) => Tarjeta(
     child: Row(
       children: [
-        Text(icono, style: const TextStyle(fontSize: 22)),
+        icono,
         const SizedBox(width: 8),
         Expanded(
           child: Column(

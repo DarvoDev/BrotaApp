@@ -43,7 +43,12 @@ class RachasScreen extends StatelessWidget {
         const SizedBox(height: 20),
         Column(
           children: [
-            const Text('🔥', style: TextStyle(fontSize: 54, height: 1.1)),
+          Image.asset(
+                  'lib/assets/images/Racha.gif',
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.contain,
+                ),
             Text(
               '${estado.racha.dias}',
               style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, height: 1.1),
@@ -65,7 +70,12 @@ class RachasScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 8),
                       child: Opacity(
                         opacity: i < escudos ? 1 : 0.25,
-                        child: const Text('🛡️', style: TextStyle(fontSize: 30)),
+                        child: Image.asset(
+                  'lib/assets/images/Escudo.jpg',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                ),
                       ),
                     ),
                   const SizedBox(width: 4),
