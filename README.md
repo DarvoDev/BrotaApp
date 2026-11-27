@@ -47,7 +47,7 @@ Proyecto de Proyectos I+D I (BUAP) — Equipo 1.
 - **Tienda del jardín**: 10 decoraciones que se compran con semillas (1 por Exp); comprar no baja el nivel; sin micropagos.
 - **Comunidad moderada**: solo frases predefinidas, botón «Reportar» y revisión del Administrador.
 - Funciona sin conexión: el estado se guarda **cifrado** en el dispositivo (`shared_preferences` + HMAC-SHA256).
-- **Servidor opcional** ([Backend-Brota](https://github.com/DarvoDev/Backend-Brota), FastAPI + PostgreSQL en Docker): JWT, sincronización de la cola local con UUID por evento (reenviar no duplica, RNF-07), compañero fantasma real y muro compartido. Más → «Servidor y sincronización».
+- **Servidor opcional** ([Backend-Brota](https://github.com/DarvoDev/Backend-Brota), FastAPI + PostgreSQL en Docker): JWT, sincronización de la cola local con UUID por evento (reenviar no duplica, RNF-07), compañero fantasma real y muro compartido. La cuenta se conecta sola al crearla o iniciar sesión; la sincronización es automática.
 - Android 8+ (minSdk 26) y web con un solo código Flutter. iOS queda como trabajo futuro (requiere Mac).
 - PDF del historial generado localmente, sin dependencias externas.
 
@@ -66,7 +66,7 @@ lib/
   screens/                inicio, jardín, rachas, S.O.S., más, perfil,
                           catálogo, recordatorios, ayuda, motivación,
                           comunidad, progreso, resumen, administración,
-                          riesgo (perceptrón) y servidor
+                          y riesgo (perceptrón)
 test/                     pruebas unitarias, de widget y de aceptación
 docs/evidencias/          capturas de la ejecución de las pruebas
 ```
@@ -85,7 +85,13 @@ BROTA_API=http://localhost:8000 flutter test test/e2e_backend_test.dart
 
 ### Servidor de producción
 
-La app apunta por defecto a **`https://api-brota.neytwo.com`**: la pantalla Más → Servidor y sincronización solo pide la contraseña y «Conectar» (queda «Usar otro servidor» por si acaso).
+La app apunta por defecto a **`https://api-brota.neytwo.com`** y se conecta sola:
+
+- **Crear cuenta** (Mi perfil): se crea también en el servidor y empieza a respaldar.
+- **Iniciar sesión**: se conecta; en un teléfono nuevo trae la cuenta del servidor.
+- **Sincronización automática**: unos segundos después de cada cambio y al abrir la app.
+- Si la sesión del servidor vence (`BROTA_JWT_DIAS`, 90 días) o la cuenta se creó sin internet, «Más» pide la contraseña una vez.
+- El modo invitado queda solo en el teléfono.
 
 ```
 flutter build apk --release                                         # producción
@@ -94,6 +100,6 @@ flutter run --dart-define=BROTA_SERVIDOR=http://10.0.2.2:8000       # backend lo
 
 El servidor debe ser HTTPS con certificado válido: Android bloquea HTTP y certificados autofirmados (salvo 10.0.2.2/localhost).
 
-Para usar el servidor desde el emulador Android: en Backend-Brota `docker compose up -d --build`, y en la app Más → Servidor y sincronización → `http://10.0.2.2:8000`. HTTP sin cifrar solo se permite hacia el emulador y localhost (`res/xml/network_security_config.xml`); en producción, HTTPS.
+Para usar el servidor local desde el emulador Android: en Backend-Brota `docker compose up -d --build` y `flutter run --dart-define=BROTA_SERVIDOR=http://10.0.2.2:8000`. HTTP sin cifrar solo se permite hacia el emulador y localhost (`res/xml/network_security_config.xml`); en producción, HTTPS.
 
 > Brota acompaña, pero no sustituye la atención profesional. En una emergencia en México llama al 911 o a la Línea de la Vida: 800 911 2000.

@@ -32,7 +32,9 @@ class BrotaState extends ChangeNotifier {
     DateTime Function()? ahora,
     Notificador? notificador,
     http.Client? clienteHttp,
+    String? servidor,
   }) : _almacen = almacen, // ignore: prefer_initializing_formals
+       _servidorAuto = servidor ?? servidorPredeterminado,
        _ahora = ahora ?? DateTime.now,
        _notificador = notificador, // ignore: prefer_initializing_formals
        _clienteHttp = clienteHttp; // ignore: prefer_initializing_formals
@@ -41,6 +43,9 @@ class BrotaState extends ChangeNotifier {
   final DateTime Function() _ahora;
   final Notificador? _notificador;
   final http.Client? _clienteHttp;
+
+  /// Servidor al que la cuenta se conecta sola (vacío = solo local).
+  final String _servidorAuto;
 
   // ------------------------- Perceptrón de riesgo (elemento innovador) -----
   PerceptronRiesgo perceptron = PerceptronRiesgo();
@@ -266,6 +271,17 @@ class BrotaState extends ChangeNotifier {
 
   bool get conectado => servidorUrl.isNotEmpty && _token != null;
 
+  /// Hay servidor oficial configurado en esta versión de la app.
+  bool get respaldoDisponible => _servidorAuto.isNotEmpty;
+
+  /// Tiene cuenta pero el respaldo no está conectado (registro sin internet o
+  /// sesión del servidor vencida): se pide la contraseña una sola vez.
+  bool get necesitaReconectar =>
+      respaldoDisponible && cuenta != null && !conectado;
+
+  Future<String?> reconectar(String password) =>
+      conectarServidor(_servidorAuto, password);
+
   ServicioApi? get _api => conectado
       ? ServicioApi(servidorUrl, cliente: _clienteHttp, token: _token)
       : null;
@@ -450,9 +466,8 @@ class BrotaState extends ChangeNotifier {
       if (microPorId(id) != null && !_metasHoy.contains(id)) microPorId(id)!,
   ];
 
-  bool completadaHoy(Actividad a) => cumplimientos.any(
-    (c) => c.dia == _hoyClave && c.actividadId == a.id,
-  );
+  bool completadaHoy(Actividad a) =>
+      cumplimientos.any((c) => c.dia == _hoyClave && c.actividadId == a.id);
 
   bool huboActividad(DateTime d) {
     final k = claveDia(d);
@@ -472,13 +487,16 @@ class BrotaState extends ChangeNotifier {
       return 'Hoy preparé misiones más ligeras 🌤️ El jardín no tiene prisa.';
     }
     if (r == null) return 'Un pasito a la vez 🌱';
-    if (r.esBajo()) return 'Hoy toca algo suave 🌤️ Elegí metas ligeras para ti.';
+    if (r.esBajo()) {
+      return 'Hoy toca algo suave 🌤️ Elegí metas ligeras para ti.';
+    }
     if (r.esAlto()) return 'Hoy hay un reto extra, solo si te nace ✨';
     return 'Un pasito a la vez 🌱';
   }
 
   /// Semilla estable por día para lo que se elige «al azar».
-  int get _semillaDia => _hoyClave.codeUnits.fold(0, (s, c) => s * 31 + c) & 0x7fffffff;
+  int get _semillaDia =>
+      _hoyClave.codeUnits.fold(0, (s, c) => s * 31 + c) & 0x7fffffff;
 
   /// CU-05, flujo A3: ánimo en el nivel más bajo 3 días seguidos.
   bool get animoMuyBajoSostenido {
@@ -499,7 +517,8 @@ class BrotaState extends ChangeNotifier {
   }
 
   bool get sugerirRecursos =>
-      animoMuyBajoSostenido || (diasInactivosSeguidos >= 3 && completadasHoy == 0);
+      animoMuyBajoSostenido ||
+      (diasInactivosSeguidos >= 3 && completadasHoy == 0);
 
   DateTime get proximaRenovacion => sumarDias(lunesDe(hoy), 7);
 
@@ -559,9 +578,7 @@ class BrotaState extends ChangeNotifier {
 
   // --------------------------------- CU-15/16 Panel y resumen -------------
 
-  Set<String> get diasConActividad => {
-    for (final c in cumplimientos) c.dia,
-  };
+  Set<String> get diasConActividad => {for (final c in cumplimientos) c.dia};
 
   int get diasActivos => diasConActividad.length;
 
@@ -642,9 +659,9 @@ class BrotaState extends ChangeNotifier {
       if (texto != null) {
         Map<String, dynamic>? datos;
         try {
-          datos = jsonDecode(
-            CifradoLocal.descifrar(texto, clave: _claveCifrado),
-          ) as Map<String, dynamic>;
+          datos =
+              jsonDecode(CifradoLocal.descifrar(texto, clave: _claveCifrado))
+                  as Map<String, dynamic>;
         } catch (_) {
           // Compatibilidad con versiones anteriores guardadas en texto.
           try {
@@ -975,7 +992,9 @@ class BrotaState extends ChangeNotifier {
     if (!c.contains('@') || !c.contains('.')) {
       return 'Escribe un correo válido';
     }
-    if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres';
+    if (password.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
     if (nombre.trim().isEmpty) return 'Escribe tu nombre';
     final edad = edadDe(fechaNac);
     if (edad == null) return 'Escribe tu fecha de nacimiento (AAAA-MM-DD)';
@@ -1014,9 +1033,7 @@ class BrotaState extends ChangeNotifier {
       consentimientoTutor: consentimientoTutor,
     );
     if (error != null) return false;
-    final sal = _hash(
-      '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 30)}',
-    );
+    final sal = _nuevaSal();
     cuenta = Cuenta(
       correo: correo.trim().toLowerCase(),
       hash: _hash('$sal$password'),
@@ -1030,17 +1047,58 @@ class BrotaState extends ChangeNotifier {
     );
     notifyListeners();
     await _guardar();
+    // El respaldo se conecta solo (crea la cuenta también en el servidor).
+    if (respaldoDisponible) {
+      unawaited(conectarServidor(_servidorAuto, password));
+    }
     return true;
   }
 
-  /// CU-02: compara el hash; no guarda sesiones en texto plano.
+  String _nuevaSal() => _hash(
+    '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 30)}',
+  );
+
+  /// CU-02: compara el hash; no guarda sesiones en texto plano. Si en este
+  /// teléfono no hay cuenta (teléfono nuevo o reinstalación), la busca en el
+  /// servidor. En ambos casos el respaldo se conecta solo.
   Future<bool> iniciarSesion(String correo, String password) async {
+    final correoN = correo.trim().toLowerCase();
     final c = cuenta;
-    if (c == null || c.correo != correo.trim().toLowerCase()) return false;
-    if (!c.verificar(password, _hash)) return false;
-    notifyListeners();
-    await _guardar();
-    return true;
+    if (c != null && c.correo == correoN) {
+      if (!c.verificar(password, _hash)) return false;
+      notifyListeners();
+      await _guardar();
+      if (respaldoDisponible && !conectado) {
+        unawaited(conectarServidor(_servidorAuto, password));
+      }
+      return true;
+    }
+    if (c != null || !respaldoDisponible) return false;
+    final api = ServicioApi(_servidorAuto, cliente: _clienteHttp);
+    try {
+      final sesion = await api.login(correoN, password);
+      final yo = await api.yo();
+      final sal = _nuevaSal();
+      cuenta = Cuenta(
+        correo: correoN,
+        hash: _hash('$sal$password'),
+        sal: sal,
+        nombre: yo['nombre'] as String? ?? '',
+        apellidos: '',
+        fechaNac: yo['fecha_nac'] as String? ?? '',
+        rol: sesion.rol == 'administrador' ? Rol.administrador : Rol.usuario,
+        aceptoPrivacidad: true,
+      );
+      servidorUrl = _servidorAuto;
+      _token = sesion.token;
+      rolServidor = sesion.rol;
+      notifyListeners();
+      await _guardar();
+      unawaited(_alConectar());
+      return true;
+    } on ErrorApi {
+      return false;
+    }
   }
 
   /// La app funciona como invitada: el núcleo no exige cuenta (RF-01/RNF-03).
@@ -1123,7 +1181,9 @@ class BrotaState extends ChangeNotifier {
 
   /// CU-06: llevar una actividad del catálogo a las metas de hoy.
   Future<void> agregarMetaDelCatalogo(String id) async {
-    if (microPorId(id) == null || metasExtra.contains(id) || _metasHoy.contains(id)) {
+    if (microPorId(id) == null ||
+        metasExtra.contains(id) ||
+        _metasHoy.contains(id)) {
       return;
     }
     metasExtra.add(id);
@@ -1348,7 +1408,10 @@ class BrotaState extends ChangeNotifier {
     }
   }
 
-  Future<void> resolverReporte(ReportePublicacion r, {required bool ocultar}) async {
+  Future<void> resolverReporte(
+    ReportePublicacion r, {
+    required bool ocultar,
+  }) async {
     if (!esAdmin) throw StateError('Solo el administrador puede hacerlo');
     final api = _api;
     if (api != null && r.id.startsWith('srv-')) {
@@ -1376,15 +1439,18 @@ class BrotaState extends ChangeNotifier {
       'Animo promedio: ${animoPromedio.toStringAsFixed(1)} de 5',
       '',
       'Ultimos 30 dias',
-      for (final valor in xpDeLosUltimos(30))
-        'XP del dia: $valor',
+      for (final valor in xpDeLosUltimos(30)) 'XP del dia: $valor',
       '',
       'Cumplimientos registrados',
-      for (final c in [...cumplimientos]..sort((a, b) => a.dia.compareTo(b.dia)))
+      for (final c in [
+        ...cumplimientos,
+      ]..sort((a, b) => a.dia.compareTo(b.dia)))
         '${c.dia}  ${c.titulo}  +${c.xpOtorgada} Exp',
       '',
       'Registros de animo',
-      for (final r in [...animos.values]..sort((a, b) => a.dia.compareTo(b.dia)))
+      for (final r in [
+        ...animos.values,
+      ]..sort((a, b) => a.dia.compareTo(b.dia)))
         '${r.dia}  animo ${r.animo}/5  energia ${r.energia}/3',
       '',
       'Descansos protegidos',
@@ -1395,7 +1461,8 @@ class BrotaState extends ChangeNotifier {
     return PdfHistorial.generar(
       'Brota - Historial de progreso',
       lineas,
-      subtitulo: 'Generado el ${claveDia(hoy)} - datos guardados solo en este dispositivo',
+      subtitulo:
+          'Generado el ${claveDia(hoy)} - datos guardados solo en este dispositivo',
     );
   }
 
@@ -1471,6 +1538,12 @@ class BrotaState extends ChangeNotifier {
       return 'Sincronizado: ${r.aceptados.length} nuevo(s), '
           '${r.duplicados.length} ya estaban en el servidor';
     } on ErrorApi catch (e) {
+      if (e.codigo == 401) {
+        // Sesión del servidor vencida: se pedirá la contraseña en «Más».
+        _token = null;
+        notifyListeners();
+        await _guardar();
+      }
       return '${e.mensaje}. Tus cambios siguen guardados y se enviarán después';
     }
   }
@@ -1504,13 +1577,17 @@ class BrotaState extends ChangeNotifier {
       rolServidor = sesion.rol;
       notifyListeners();
       await _guardar();
-      await sincronizar();
-      await refrescarFantasma();
-      await cargarComunidad();
+      await _alConectar();
       return null;
     } on ErrorApi catch (e) {
       return e.mensaje;
     }
+  }
+
+  Future<void> _alConectar() async {
+    await sincronizar();
+    await refrescarFantasma();
+    await cargarComunidad();
   }
 
   Future<void> desconectarServidor() async {
@@ -1637,7 +1714,9 @@ class BrotaState extends ChangeNotifier {
     mascota = j['mascota'] as String? ?? mascota;
     mascotaNombre = j['mascotaNombre'] as String? ?? mascotaNombre;
 
-    final catalogoGuardado = lista('catalogo').map(Microactividad.fromJson).toList();
+    final catalogoGuardado = lista(
+      'catalogo',
+    ).map(Microactividad.fromJson).toList();
     if (catalogoGuardado.isNotEmpty) {
       catalogo
         ..clear()
@@ -1647,32 +1726,36 @@ class BrotaState extends ChangeNotifier {
       ..clear()
       ..addAll(((j['metasExtra'] as List?) ?? []).cast<String>());
 
-    final recordatoriosGuardados =
-        lista('recordatorios').map(Recordatorio.fromJson).toList();
+    final recordatoriosGuardados = lista(
+      'recordatorios',
+    ).map(Recordatorio.fromJson).toList();
     if (recordatoriosGuardados.isNotEmpty) {
       recordatorios
         ..clear()
         ..addAll(recordatoriosGuardados);
     }
 
-    final recursosGuardados =
-        lista('recursos').map(RecursoAyuda.fromJson).toList();
+    final recursosGuardados = lista(
+      'recursos',
+    ).map(RecursoAyuda.fromJson).toList();
     if (recursosGuardados.isNotEmpty) {
       recursos
         ..clear()
         ..addAll(recursosGuardados);
     }
 
-    final mensajesGuardados =
-        lista('mensajes').map(MensajeValidado.fromJson).toList();
+    final mensajesGuardados = lista(
+      'mensajes',
+    ).map(MensajeValidado.fromJson).toList();
     if (mensajesGuardados.isNotEmpty) {
       mensajes
         ..clear()
         ..addAll(mensajesGuardados);
     }
 
-    final publicacionesGuardadas =
-        lista('publicaciones').map(Publicacion.fromJson).toList();
+    final publicacionesGuardadas = lista(
+      'publicaciones',
+    ).map(Publicacion.fromJson).toList();
     if (publicacionesGuardadas.isNotEmpty) {
       publicaciones
         ..clear()
@@ -1683,9 +1766,9 @@ class BrotaState extends ChangeNotifier {
     cambiosPendientes
       ..clear()
       ..addAll(
-        lista('cambiosPendientes')
-            .where((c) => c['tipo'] is String)
-            .map(EntradaSincronizacion.fromJson),
+        lista(
+          'cambiosPendientes',
+        ).where((c) => c['tipo'] is String).map(EntradaSincronizacion.fromJson),
       );
     datosSincronizados = j['datosSincronizados'] as bool? ?? true;
     _contadores.clear();

@@ -16,7 +16,7 @@ void main() {
     'registro, sincronización sin duplicados, fantasma y muro con el servidor real',
     () async {
       final correo = 'e2e${DateTime.now().millisecondsSinceEpoch}@brota.mx';
-      final e = BrotaState(almacen: AlmacenMemoria());
+      final e = BrotaState(servidor: '', almacen: AlmacenMemoria());
       await e.iniciar();
       expect(
         await e.registrarse(
@@ -56,7 +56,7 @@ void main() {
       expect(e.publicacionesVisibles.any((x) => x.id == p.id), isFalse);
 
       // Compañero fantasma entre dos personas reales.
-      final b = BrotaState(almacen: AlmacenMemoria());
+      final b = BrotaState(servidor: '', almacen: AlmacenMemoria());
       await b.iniciar();
       await b.registrarse(
         correo: 'b$correo',
@@ -77,7 +77,9 @@ void main() {
       e.dispose();
       b.dispose();
     },
-    skip: url == null ? 'Define BROTA_API para probar contra el servidor' : false,
+    skip: url == null
+        ? 'Define BROTA_API para probar contra el servidor'
+        : false,
     timeout: const Timeout(Duration(minutes: 1)),
   );
 }

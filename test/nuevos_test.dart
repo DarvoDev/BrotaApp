@@ -16,17 +16,20 @@ class _Reloj {
   _Reloj(this.ahora);
   DateTime ahora;
   DateTime call() => ahora;
-  void avanzar(int dias) => ahora = sumarDias(ahora, dias).add(const Duration(hours: 9));
+  void avanzar(int dias) =>
+      ahora = sumarDias(ahora, dias).add(const Duration(hours: 9));
 }
 
 Future<(BrotaState, _Reloj, AlmacenMemoria)> _nuevo({
   DateTime? inicio,
   Notificador? notificador,
   http.Client? cliente,
+  String servidor = '',
 }) async {
   final reloj = _Reloj(inicio ?? DateTime(2026, 11, 9, 9)); // lunes
   final almacen = AlmacenMemoria();
   final e = BrotaState(
+    servidor: servidor,
     almacen: almacen,
     ahora: reloj.call,
     notificador: notificador,
@@ -117,20 +120,23 @@ void main() {
       expect(vacio.entradas, [0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.5, 0.0]);
     });
 
-    test('días sin actividad → riesgo ALTO y misiones ligeras al día siguiente', () async {
-      final (e, reloj, _) = await _nuevo();
-      expect(e.prediccionHoy, isNull); // aún aprendiendo
-      e.completarActividad(e.metasHoy.first);
-      reloj.avanzar(3); // martes y miércoles sin actividad; es jueves
-      await e.abrirDia();
-      expect(e.prediccionHoy, isNotNull);
-      expect(e.riesgoAltoHoy, isTrue);
-      expect(e.metasHoy.length, 2);
-      expect(e.metasHoy.every((m) => m.esfuerzo == 1), isTrue);
-      expect(e.mensajeDelDia, contains('más ligeras'));
-      expect(e.perceptron.ejemplos, greaterThanOrEqualTo(1));
-      expect(e.cambiosPendientes.any((c) => c.tipo == 'riesgo'), isTrue);
-    });
+    test(
+      'días sin actividad → riesgo ALTO y misiones ligeras al día siguiente',
+      () async {
+        final (e, reloj, _) = await _nuevo();
+        expect(e.prediccionHoy, isNull); // aún aprendiendo
+        e.completarActividad(e.metasHoy.first);
+        reloj.avanzar(3); // martes y miércoles sin actividad; es jueves
+        await e.abrirDia();
+        expect(e.prediccionHoy, isNotNull);
+        expect(e.riesgoAltoHoy, isTrue);
+        expect(e.metasHoy.length, 2);
+        expect(e.metasHoy.every((m) => m.esfuerzo == 1), isTrue);
+        expect(e.mensajeDelDia, contains('más ligeras'));
+        expect(e.perceptron.ejemplos, greaterThanOrEqualTo(1));
+        expect(e.cambiosPendientes.any((c) => c.tipo == 'riesgo'), isTrue);
+      },
+    );
 
     test('constancia y buen ánimo → riesgo BAJO y metas normales', () async {
       final (e, reloj, _) = await _nuevo();
@@ -147,26 +153,35 @@ void main() {
       expect(e.pronosticoManana, isNotNull);
     });
 
-    test('el modelo aprendido sobrevive al reinicio y se puede reiniciar', () async {
-      final (e, reloj, almacen) = await _nuevo();
-      e.completarActividad(e.metasHoy.first);
-      reloj.avanzar(4);
-      await e.abrirDia();
-      final ejemplos = e.perceptron.ejemplos;
-      final otra = BrotaState(almacen: almacen, ahora: reloj.call);
-      await otra.iniciar();
-      expect(otra.perceptron.ejemplos, ejemplos);
-      expect(otra.prediccionHoy?.alto, e.prediccionHoy?.alto);
-      await otra.reiniciarModelo();
-      expect(otra.perceptron.pesos, PerceptronRiesgo.pesosIniciales);
-    });
+    test(
+      'el modelo aprendido sobrevive al reinicio y se puede reiniciar',
+      () async {
+        final (e, reloj, almacen) = await _nuevo();
+        e.completarActividad(e.metasHoy.first);
+        reloj.avanzar(4);
+        await e.abrirDia();
+        final ejemplos = e.perceptron.ejemplos;
+        final otra = BrotaState(
+          servidor: '',
+          almacen: almacen,
+          ahora: reloj.call,
+        );
+        await otra.iniciar();
+        expect(otra.perceptron.ejemplos, ejemplos);
+        expect(otra.prediccionHoy?.alto, e.prediccionHoy?.alto);
+        await otra.reiniciarModelo();
+        expect(otra.perceptron.pesos, PerceptronRiesgo.pesosIniciales);
+      },
+    );
   });
 
   group('Diccionario de palabras clave (CU-19a)', () {
     test('todos los ejemplos del diccionario se clasifican como se espera', () {
-      final d = jsonDecode(
-        File('docs/diccionario_motivacional.json').readAsStringSync(),
-      ) as Map<String, dynamic>;
+      final d =
+          jsonDecode(
+                File('docs/diccionario_motivacional.json').readAsStringSync(),
+              )
+              as Map<String, dynamic>;
       const nombres = {
         'motivadora': CategoriaFrase.motivadora,
         'neutra': CategoriaFrase.neutra,
@@ -175,13 +190,25 @@ void main() {
       };
       for (final ej in (d['ejemplos'] as List).cast<Map<String, dynamic>>()) {
         final c = ClasificadorFrases.clasificar(ej['texto'] as String);
-        expect(c.categoria, nombres[ej['esperado']], reason: ej['texto'] as String);
-        expect(c.implicita, ej['estilo'] == 'implicito', reason: ej['texto'] as String);
+        expect(
+          c.categoria,
+          nombres[ej['esperado']],
+          reason: ej['texto'] as String,
+        );
+        expect(
+          c.implicita,
+          ej['estilo'] == 'implicito',
+          reason: ej['texto'] as String,
+        );
       }
     });
 
     test('normaliza acentos y no cuenta dos veces la misma palabra', () {
-      expect(ClasificadorFrases.normalizar('¡Ánimo, Tú PUEDES!'), ['animo', 'tu', 'puedes']);
+      expect(ClasificadorFrases.normalizar('¡Ánimo, Tú PUEDES!'), [
+        'animo',
+        'tu',
+        'puedes',
+      ]);
       final c = ClasificadorFrases.clasificar('No tienes que correr');
       expect(c.coincidencias.map((m) => m.termino), ['no tienes que']);
       expect(c.esMotivadora, isTrue);
@@ -202,25 +229,33 @@ void main() {
   });
 
   group('Pendiente 2 · Compañero fantasma', () {
-    test('sin servidor muestra señales de ejemplo y permite una reacción por señal', () async {
-      final (e, reloj, _) = await _nuevo(inicio: DateTime(2026, 11, 9, 23, 30));
-      final senales = e.senalesFantasma;
-      expect(senales, isNotEmpty);
-      expect(senales.every((s) => s.simulada), isTrue);
-      await e.reaccionarASenal(senales.first, 'tu_puedes');
-      await e.reaccionarASenal(senales.first, 'bien_hecho'); // se ignora
-      expect(e.interacciones.where((i) => !i.recibida).length, 1);
-      expect(e.senalesFantasma.length, senales.length - 1);
-      expect(e.datosRiesgo(e.hoy).interaccionesFantasma7, 1);
-      reloj.ahora = DateTime(2026, 11, 10, 0, 5);
-      expect(e.senalesFantasma, isEmpty); // de madrugada aún no hay
-    });
+    test(
+      'sin servidor muestra señales de ejemplo y permite una reacción por señal',
+      () async {
+        final (e, reloj, _) = await _nuevo(
+          inicio: DateTime(2026, 11, 9, 23, 30),
+        );
+        final senales = e.senalesFantasma;
+        expect(senales, isNotEmpty);
+        expect(senales.every((s) => s.simulada), isTrue);
+        await e.reaccionarASenal(senales.first, 'tu_puedes');
+        await e.reaccionarASenal(senales.first, 'bien_hecho'); // se ignora
+        expect(e.interacciones.where((i) => !i.recibida).length, 1);
+        expect(e.senalesFantasma.length, senales.length - 1);
+        expect(e.datosRiesgo(e.hoy).interaccionesFantasma7, 1);
+        reloj.ahora = DateTime(2026, 11, 10, 0, 5);
+        expect(e.senalesFantasma, isEmpty); // de madrugada aún no hay
+      },
+    );
 
     test('al completar la primera misión del día llega una reacción', () async {
       final (e, _, _) = await _nuevo();
       e.completarActividad(e.metasHoy.first);
       expect(e.reaccionesNuevas.length, 1);
-      expect(reaccionesFantasma.keys, contains(e.reaccionesNuevas.first.reaccion));
+      expect(
+        reaccionesFantasma.keys,
+        contains(e.reaccionesNuevas.first.reaccion),
+      );
       e.completarActividad(e.metasHoy.last);
       expect(e.reaccionesNuevas.length, 1); // solo la primera del día
       await e.marcarReaccionesVistas();
@@ -263,7 +298,9 @@ void main() {
     test('las semillas se ganan jugando y comprar no baja el nivel', () async {
       final (e, _, _) = await _nuevo();
       for (var i = 0; i < 2; i++) {
-        e.completarActividad(await e.crearTarea('Tarea $i', 'Otro', 3)); // 30 c/u
+        e.completarActividad(
+          await e.crearTarea('Tarea $i', 'Otro', 3),
+        ); // 30 c/u
       }
       expect(e.semillas, 60);
       expect(await e.comprarDecoracion('d-arcoiris'), contains('Te faltan 60'));
@@ -297,15 +334,19 @@ void main() {
   });
 
   group('Pendiente 7 · Edad, consentimiento y privacidad', () {
-    String? validar(BrotaState e, String fecha, {bool tutor = false, bool privacidad = true}) =>
-        e.validarRegistro(
-          correo: 'a@b.com',
-          password: '123456',
-          nombre: 'Ana',
-          fechaNac: fecha,
-          aceptaPrivacidad: privacidad,
-          consentimientoTutor: tutor,
-        );
+    String? validar(
+      BrotaState e,
+      String fecha, {
+      bool tutor = false,
+      bool privacidad = true,
+    }) => e.validarRegistro(
+      correo: 'a@b.com',
+      password: '123456',
+      nombre: 'Ana',
+      fechaNac: fecha,
+      aceptaPrivacidad: privacidad,
+      consentimientoTutor: tutor,
+    );
 
     test('reglas de 13 a 35 años', () async {
       final (e, _, _) = await _nuevo(); // hoy: 2026-11-09
@@ -313,7 +354,10 @@ void main() {
       expect(validar(e, '2014-01-01'), contains('13 años o más')); // 12
       expect(validar(e, '2011-01-01'), contains('consentimiento')); // 15
       expect(validar(e, '2011-01-01', tutor: true), isNull);
-      expect(validar(e, '2000-01-01', privacidad: false), contains('privacidad'));
+      expect(
+        validar(e, '2000-01-01', privacidad: false),
+        contains('privacidad'),
+      );
       expect(e.edadDe('2013-11-09'), 13);
       expect(e.edadDe('2013-11-10'), 12);
       await e.registrarse(
@@ -350,7 +394,12 @@ void main() {
       final (e, _, _) = await _nuevo(notificador: n);
       final antes = n.llamadas;
       await e.guardarRecordatorio(
-        Recordatorio(id: 'r1', titulo: 'Agua', horaMinutos: 600, diasSemana: [1, 2]),
+        Recordatorio(
+          id: 'r1',
+          titulo: 'Agua',
+          horaMinutos: 600,
+          diasSemana: [1, 2],
+        ),
       );
       expect(n.llamadas, antes + 1);
       expect(n.ultimos, 1);
@@ -362,46 +411,58 @@ void main() {
 
   group('Pendiente 8 · Servidor y RNF-07 sin duplicados', () {
     /// Servidor falso que imita al backend: guarda ids y responde duplicados.
-    MockClient servidor(Set<String> guardados, List<String> rutas) => MockClient((req) async {
-      rutas.add('${req.method} ${req.url.path}');
-      final cuerpo = req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
-      Map<String, dynamic> sesion() => {
-        'token': 'jwt-de-prueba',
-        'usuario': {'id': 'u1', 'nombre': 'Ana', 'rol': 'usuario'},
-      };
-      switch (req.url.path) {
-        case '/api/v1/salud':
-          return _json(({'estado': 'ok'}), 200);
-        case '/api/v1/auth/login':
-          return _json(({'detail': 'Correo o contraseña incorrectos'}), 401);
-        case '/api/v1/auth/registro':
-          expect(cuerpo['fecha_nac'], '2000-01-01');
-          expect(cuerpo['acepta_privacidad'], isTrue);
-          return _json((sesion()), 201);
-        case '/api/v1/sync':
-          expect(req.headers['Authorization'], 'Bearer jwt-de-prueba');
-          final aceptados = <String>[];
-          final duplicados = <String>[];
-          for (final ev in (cuerpo['eventos'] as List).cast<Map<String, dynamic>>()) {
-            final id = ev['id'] as String;
-            (guardados.add(id) ? aceptados : duplicados).add(id);
+    MockClient servidor(Set<String> guardados, List<String> rutas) =>
+        MockClient((req) async {
+          rutas.add('${req.method} ${req.url.path}');
+          final cuerpo = req.body.isEmpty
+              ? <String, dynamic>{}
+              : jsonDecode(req.body) as Map<String, dynamic>;
+          Map<String, dynamic> sesion() => {
+            'token': 'jwt-de-prueba',
+            'usuario': {'id': 'u1', 'nombre': 'Ana', 'rol': 'usuario'},
+          };
+          switch (req.url.path) {
+            case '/api/v1/salud':
+              return _json(({'estado': 'ok'}), 200);
+            case '/api/v1/auth/login':
+              return _json(({
+                'detail': 'Correo o contraseña incorrectos',
+              }), 401);
+            case '/api/v1/auth/registro':
+              expect(cuerpo['fecha_nac'], '2000-01-01');
+              expect(cuerpo['acepta_privacidad'], isTrue);
+              return _json((sesion()), 201);
+            case '/api/v1/sync':
+              expect(req.headers['Authorization'], 'Bearer jwt-de-prueba');
+              final aceptados = <String>[];
+              final duplicados = <String>[];
+              for (final ev
+                  in (cuerpo['eventos'] as List).cast<Map<String, dynamic>>()) {
+                final id = ev['id'] as String;
+                (guardados.add(id) ? aceptados : duplicados).add(id);
+              }
+              return http.Response(
+                jsonEncode({
+                  'aceptados': aceptados,
+                  'duplicados': duplicados,
+                  'rechazados': [],
+                }),
+                200,
+              );
+            case '/api/v1/fantasma/senales':
+              return req.method == 'GET'
+                  ? _json(([
+                      {'id': 's-9', 'hace_minutos': 5},
+                    ]), 200)
+                  : _json(({'id': 's-mia'}), 201);
+            case '/api/v1/fantasma/recibidas':
+              return _json(([]), 200);
+            case '/api/v1/comunidad/publicaciones':
+              return _json(([]), 200);
+            default:
+              return _json(({'detail': 'No existe'}), 404);
           }
-          return http.Response(
-            jsonEncode({'aceptados': aceptados, 'duplicados': duplicados, 'rechazados': []}),
-            200,
-          );
-        case '/api/v1/fantasma/senales':
-          return req.method == 'GET'
-              ? _json(([{'id': 's-9', 'hace_minutos': 5}]), 200)
-              : _json(({'id': 's-mia'}), 201);
-        case '/api/v1/fantasma/recibidas':
-          return _json(([]), 200);
-        case '/api/v1/comunidad/publicaciones':
-          return _json(([]), 200);
-        default:
-          return _json(({'detail': 'No existe'}), 404);
-      }
-    });
+        });
 
     test('conecta (crea la cuenta remota) y sincroniza sin duplicar', () async {
       final guardados = <String>{};
@@ -416,16 +477,35 @@ void main() {
       );
       await e.registrarAnimo(3, 2);
       await e.crearTarea('Leer 5 minutos', 'Estudio', 1);
-      expect(await e.conectarServidor('http://localhost:8000', 'mala'), contains('no coincide'));
-      expect(await e.conectarServidor('http://localhost:8000/', 'secreto123'), isNull);
+      expect(
+        await e.conectarServidor('http://localhost:8000', 'mala'),
+        contains('no coincide'),
+      );
+      expect(
+        await e.conectarServidor('http://localhost:8000/', 'secreto123'),
+        isNull,
+      );
       expect(e.conectado, isTrue);
-      expect(rutas, containsAllInOrder(['GET /api/v1/salud', 'POST /api/v1/auth/login', 'POST /api/v1/auth/registro', 'POST /api/v1/sync']));
+      expect(
+        rutas,
+        containsAllInOrder([
+          'GET /api/v1/salud',
+          'POST /api/v1/auth/login',
+          'POST /api/v1/auth/registro',
+          'POST /api/v1/sync',
+        ]),
+      );
       expect(e.cambiosPendientes, isEmpty);
       expect(guardados.length, 2);
       expect(e.senalesFantasma.single.id, 's-9'); // señal real, no simulada
 
       // Un reenvío del mismo evento no duplica nada en el servidor.
-      final copia = EntradaSincronizacion(id: guardados.first, tipo: 'animo', fecha: '2026-11-09T09:00:00', datos: const {'dia': '2026-11-09', 'animo': 3, 'energia': 2});
+      final copia = EntradaSincronizacion(
+        id: guardados.first,
+        tipo: 'animo',
+        fecha: '2026-11-09T09:00:00',
+        datos: const {'dia': '2026-11-09', 'animo': 3, 'energia': 2},
+      );
       e.cambiosPendientes.add(copia);
       final r = await e.sincronizar();
       expect(r, contains('1 ya estaban'));
@@ -435,7 +515,9 @@ void main() {
     });
 
     test('si el servidor no responde, la cola se conserva', () async {
-      final caido = MockClient((_) async => throw const SocketException('sin red'));
+      final caido = MockClient(
+        (_) async => throw const SocketException('sin red'),
+      );
       final (e, _, _) = await _nuevo(cliente: caido);
       await e.registrarse(
         correo: 'ana@brota.mx',
@@ -444,10 +526,137 @@ void main() {
         fechaNac: '2000-01-01',
         aceptaPrivacidad: true,
       );
-      expect(await e.conectarServidor('http://10.0.2.2:8000', 'secreto123'), 'No hay conexión con el servidor');
+      expect(
+        await e.conectarServidor('http://10.0.2.2:8000', 'secreto123'),
+        'No hay conexión con el servidor',
+      );
       expect(e.conectado, isFalse);
       await e.crearTarea('Algo', 'Otro', 1);
       expect(e.cambiosPendientes.length, 1);
+    });
+  });
+
+  group('Conexión automática al servidor oficial', () {
+    const url = 'http://localhost:8000';
+
+    /// Backend falso con una cuenta existente (ana@brota.mx / secreto123).
+    MockClient backend(List<String> rutas, {bool tokenVencido = false}) {
+      var cuentaCreada = false;
+      return MockClient((req) async {
+        rutas.add('${req.method} ${req.url.path}');
+        final cuerpo = req.body.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(req.body) as Map<String, dynamic>;
+        final sesion = {
+          'token': 'jwt-ok',
+          'usuario': {'id': 'u1', 'nombre': 'Ana', 'rol': 'usuario'},
+        };
+        switch (req.url.path) {
+          case '/api/v1/salud':
+            return _json({'estado': 'ok'}, 200);
+          case '/api/v1/auth/login':
+            final ok =
+                (cuerpo['correo'] == 'ana@brota.mx' || cuentaCreada) &&
+                cuerpo['password'] == 'secreto123';
+            return ok
+                ? _json(sesion, 200)
+                : _json({'detail': 'Correo o contraseña incorrectos'}, 401);
+          case '/api/v1/auth/registro':
+            cuentaCreada = true;
+            return _json(sesion, 201);
+          case '/api/v1/auth/yo':
+            return _json({
+              'id': 'u1',
+              'correo': 'ana@brota.mx',
+              'nombre': 'Ana',
+              'rol': 'usuario',
+              'fecha_nac': '2000-01-01',
+            }, 200);
+          case '/api/v1/sync':
+            if (tokenVencido) {
+              return _json({'detail': 'La sesión expiró'}, 401);
+            }
+            final ids = [
+              for (final ev in (cuerpo['eventos'] as List)) ev['id'] as String,
+            ];
+            return _json({
+              'aceptados': ids,
+              'duplicados': [],
+              'rechazados': [],
+            }, 200);
+          default:
+            return _json([], 200);
+        }
+      });
+    }
+
+    test('al crear la cuenta se conecta y respalda sin pasos extra', () async {
+      final rutas = <String>[];
+      final (e, _, _) = await _nuevo(cliente: backend(rutas), servidor: url);
+      expect(e.necesitaReconectar, isFalse); // invitado: nada que pedir
+      await e.registrarse(
+        correo: 'luis@brota.mx',
+        password: 'secreto123',
+        nombre: 'Luis',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
+      );
+      await pumpEventQueue();
+      expect(e.conectado, isTrue);
+      expect(rutas, contains('POST /api/v1/auth/registro'));
+      await e.crearTarea('Leer', 'Estudio', 1);
+      await pumpEventQueue(times: 50);
+      await Future<void>.delayed(const Duration(seconds: 4));
+      expect(e.cambiosPendientes, isEmpty); // se envió solo
+      e.dispose();
+    });
+
+    test(
+      'en un teléfono nuevo, iniciar sesión trae la cuenta del servidor',
+      () async {
+        final rutas = <String>[];
+        final (e, _, _) = await _nuevo(cliente: backend(rutas), servidor: url);
+        expect(await e.iniciarSesion('ana@brota.mx', 'mala'), isFalse);
+        expect(e.cuenta, isNull);
+        expect(await e.iniciarSesion('Ana@Brota.mx ', 'secreto123'), isTrue);
+        expect(e.cuenta!.nombre, 'Ana');
+        expect(e.cuenta!.fechaNac, '2000-01-01');
+        expect(e.conectado, isTrue);
+        await pumpEventQueue(times: 50);
+        e.dispose();
+      },
+    );
+
+    test(
+      'sesión vencida: se pide la contraseña una vez y se reconecta',
+      () async {
+        final rutas = <String>[];
+        final cliente = backend(rutas, tokenVencido: true);
+        final (e, _, _) = await _nuevo(cliente: cliente, servidor: url);
+        await e.iniciarSesion('ana@brota.mx', 'secreto123');
+        await pumpEventQueue(times: 50);
+        await e.crearTarea('Leer', 'Estudio', 1);
+        await e.sincronizar();
+        expect(e.conectado, isFalse); // el /sync respondió 401
+        expect(e.necesitaReconectar, isTrue);
+        expect(await e.reconectar('mala'), contains('no coincide'));
+        expect(e.necesitaReconectar, isTrue);
+        e.dispose();
+      },
+    );
+
+    test('sin servidor oficial la app queda solo local', () async {
+      final (e, _, _) = await _nuevo();
+      await e.registrarse(
+        correo: 'ana@brota.mx',
+        password: 'secreto123',
+        nombre: 'Ana',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
+      );
+      expect(e.conectado, isFalse);
+      expect(e.necesitaReconectar, isFalse);
+      expect(await e.iniciarSesion('otra@brota.mx', 'secreto123'), isFalse);
     });
   });
 }

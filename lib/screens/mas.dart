@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../models/modelos.dart';
-import '../state/brota_state.dart';
 import '../theme.dart';
 import 'admin.dart';
 import 'ayuda.dart';
@@ -14,7 +13,6 @@ import 'progreso.dart';
 import 'recordatorios.dart';
 import 'resumen.dart';
 import 'riesgo.dart';
-import 'servidor.dart';
 
 /// Pestaña «Más»: puerta de entrada al resto de casos de uso (CU-01 a CU-19).
 class MasScreen extends StatelessWidget {
@@ -22,14 +20,6 @@ class MasScreen extends StatelessWidget {
 
   void _abrir(BuildContext context, Widget destino) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => destino));
-  }
-
-  Future<void> _sincronizar(BuildContext context, BrotaState estado) async {
-    final mensaje = await estado.sincronizar();
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
-    );
   }
 
   @override
@@ -55,10 +45,10 @@ class MasScreen extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          estado.hayCambiosPendientes
-                              ? '$pendientes cambio(s) por sincronizar'
-                              : estado.conectado
-                              ? 'Todo está sincronizado'
+                          estado.conectado
+                              ? (estado.hayCambiosPendientes
+                                    ? 'Respaldando $pendientes cambio(s)…'
+                                    : 'Tu progreso está respaldado')
                               : 'Todo está guardado en este dispositivo',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
@@ -68,10 +58,12 @@ class MasScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     estado.conectado
-                        ? 'Tus datos se guardan cifrados aquí y se respaldan en el '
-                              'servidor sin duplicarse, aunque se envíen dos veces.'
-                        : 'Tus datos se guardan cifrados aquí. Si conectas el '
-                              'servidor, los cambios pendientes se envían solos.',
+                        ? 'Tus datos se guardan cifrados aquí y se respaldan solos '
+                              'en la nube cuando hay internet.'
+                        : estado.cuenta == null && estado.respaldoDisponible
+                        ? 'Crea tu cuenta o inicia sesión en «Mi perfil» y tu '
+                              'progreso se respaldará solo.'
+                        : 'Tus datos se guardan cifrados aquí.',
                     style: TextStyle(color: e.onSurfaceVariant, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
@@ -81,12 +73,10 @@ class MasScreen extends StatelessWidget {
                     'Nivel ${estado.nivel} · ${estado.xpEnNivel}/$xpPorNivel Exp',
                     style: TextStyle(color: e.onSurfaceVariant, fontSize: 13),
                   ),
-                  const SizedBox(height: 10),
-                  FilledButton.icon(
-                    onPressed: () => _sincronizar(context, estado),
-                    icon: const Icon(Icons.sync, size: 18),
-                    label: const Text('Sincronizar ahora'),
-                  ),
+                  if (estado.necesitaReconectar) ...[
+                    const SizedBox(height: 12),
+                    const _Reconectar(),
+                  ],
                 ],
               ),
             ),
@@ -118,12 +108,6 @@ class MasScreen extends StatelessWidget {
                     titulo: 'Cómo decide Brota',
                     subtitulo: 'Perceptrón de riesgo y sus pesos (CU-20)',
                     alTocar: () => _abrir(context, const RiesgoScreen()),
-                  ),
-                  _Entrada(
-                    icono: Icons.cloud_sync_outlined,
-                    titulo: 'Servidor y sincronización',
-                    subtitulo: 'Respaldo opcional sin duplicados (RNF-07)',
-                    alTocar: () => _abrir(context, const ServidorScreen()),
                   ),
                 ],
               ),
@@ -174,7 +158,8 @@ class MasScreen extends StatelessWidget {
                   _Entrada(
                     icono: Icons.admin_panel_settings_outlined,
                     titulo: 'Administración',
-                    subtitulo: 'Catálogo, contenidos y reportes (CU-18, CU-19, CU-24)',
+                    subtitulo:
+                        'Catálogo, contenidos y reportes (CU-18, CU-19, CU-24)',
                     alTocar: () => _abrir(context, AdminScreen()),
                   ),
                 ],
@@ -190,6 +175,75 @@ class MasScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Solo aparece si el respaldo se desconectó (registro sin internet o sesión
+/// vencida): con la contraseña una vez basta.
+class _Reconectar extends StatefulWidget {
+  const _Reconectar();
+
+  @override
+  State<_Reconectar> createState() => _ReconectarState();
+}
+
+class _ReconectarState extends State<_Reconectar> {
+  final _password = TextEditingController();
+  bool _cargando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reconectar() async {
+    if (_cargando || _password.text.isEmpty) return;
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    final error = await BrotaScope.of(context).reconectar(_password.text);
+    if (!mounted) return;
+    setState(() {
+      _cargando = false;
+      _error = error;
+    });
+    if (error == null) _password.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Escribe tu contraseña para seguir respaldando tu progreso.',
+        style: TextStyle(fontSize: 13),
+      ),
+      const SizedBox(height: 6),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _password,
+              obscureText: true,
+              onSubmitted: (_) => _reconectar(),
+              decoration: InputDecoration(
+                labelText: 'Contraseña',
+                errorText: _error,
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: _cargando ? null : _reconectar,
+            child: const Text('Listo'),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _Entrada extends StatelessWidget {

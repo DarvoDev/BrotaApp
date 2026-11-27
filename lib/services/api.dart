@@ -4,10 +4,10 @@ import 'package:http/http.dart' as http;
 
 import '../models/modelos.dart';
 
-/// Servidor oficial (producción). Cualquier build apunta aquí por defecto.
+/// Servidor oficial (producción). La app se conecta sola al iniciar sesión.
 /// Para otro servidor al compilar:
 ///   flutter run --dart-define=BROTA_SERVIDOR=http://10.0.2.2:8000
-/// o en la app: Más → Servidor y sincronización → «Usar otro servidor».
+/// Con `--dart-define=BROTA_SERVIDOR=` (vacío) la app queda solo local.
 const String servidorPredeterminado = String.fromEnvironment(
   'BROTA_SERVIDOR',
   defaultValue: 'https://api-brota.neytwo.com',
@@ -52,8 +52,8 @@ class ResultadoSync {
 
 /// Cliente del backend Brota (repositorio Backend-Brota, API REST /api/v1).
 ///
-/// Es opcional: la app funciona completa sin servidor. Cuando el usuario
-/// conecta su cuenta (Más → Servidor y sincronización), se usa para el JWT,
+/// Es opcional: la app funciona completa sin servidor. Al iniciar sesión o
+/// crear la cuenta se conecta sola; se usa para el JWT,
 /// la sincronización sin duplicados (RNF-07), el compañero fantasma real y el
 /// muro compartido y moderado. En producción la URL debe ser HTTPS.
 class ServicioApi {
@@ -123,13 +123,12 @@ class ServicioApi {
     return s;
   }
 
-  Future<SesionApi> login(String correo, String password) async =>
-      _sesion(
-        await _pedir('POST', '/auth/login', {
-          'correo': correo,
-          'password': password,
-        }),
-      );
+  Future<SesionApi> login(String correo, String password) async => _sesion(
+    await _pedir('POST', '/auth/login', {
+      'correo': correo,
+      'password': password,
+    }),
+  );
 
   Future<SesionApi> registro({
     required String correo,
@@ -149,11 +148,17 @@ class ServicioApi {
     }),
   );
 
+  /// GET /auth/yo: datos de la cuenta (para crearla en un teléfono nuevo).
+  Future<Map<String, dynamic>> yo() async =>
+      await _pedir('GET', '/auth/yo') as Map<String, dynamic>;
+
   /// POST /sync: reenviar el mismo lote no duplica nada en el servidor.
   Future<ResultadoSync> sincronizar(List<EntradaSincronizacion> lote) async {
-    final d = await _pedir('POST', '/sync', {
-      'eventos': [for (final e in lote) e.toJson()],
-    }) as Map<String, dynamic>;
+    final d =
+        await _pedir('POST', '/sync', {
+              'eventos': [for (final e in lote) e.toJson()],
+            })
+            as Map<String, dynamic>;
     List<String> l(String k) => ((d[k] as List?) ?? []).cast<String>();
     return ResultadoSync(
       aceptados: l('aceptados'),
@@ -177,11 +182,11 @@ class ServicioApi {
     ];
   }
 
-  Future<void> reaccionar(String senalId, String reaccion) async =>
-      _pedir('POST', '/fantasma/reacciones', {
-        'senal_id': senalId,
-        'reaccion': reaccion,
-      });
+  Future<void> reaccionar(String senalId, String reaccion) async => _pedir(
+    'POST',
+    '/fantasma/reacciones',
+    {'senal_id': senalId, 'reaccion': reaccion},
+  );
 
   Future<List<String>> recibidas() async {
     final d = await _pedir('GET', '/fantasma/recibidas') as List;
