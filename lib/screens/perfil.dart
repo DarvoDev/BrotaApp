@@ -38,7 +38,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final _nombreMascota = TextEditingController();
 
   bool _registrando = false;
-  bool _esAdmin = false;
   bool _aceptaPrivacidad = false;
   bool _consentimientoTutor = false;
   bool _cargando = false;
@@ -157,7 +156,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
       fechaNac: _fechaIso,
       aceptaPrivacidad: _aceptaPrivacidad,
       consentimientoTutor: _consentimientoTutor,
-      rol: _esAdmin ? Rol.administrador : Rol.usuario,
     );
     if (!mounted) return;
     setState(() => _cargando = false);
@@ -260,7 +258,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
     setState(() {
       _error = null;
       _registrando = false;
-      _esAdmin = false;
       _correo.clear();
       _password.clear();
     });
@@ -429,17 +426,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     onPressed: () => mostrarAvisoPrivacidad(context),
                     icon: const Icon(Icons.privacy_tip_outlined, size: 18),
                     label: const Text('Leer aviso de privacidad'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Semantics(
-                  label: 'Registrarme como parte del equipo Brota',
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _esAdmin,
-                    onChanged: (v) => setState(() => _esAdmin = v),
-                    title: const Text('Soy del equipo Brota (administrador)'),
-                    subtitle: const Text('Solo para probar la administración.'),
                   ),
                 ),
               ],

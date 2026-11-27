@@ -710,6 +710,44 @@ void main() {
       e.dispose();
     });
 
+    test('el rol de administrador solo lo da el servidor', () async {
+      MockClient conRol(String rol) => MockClient((req) async {
+        switch (req.url.path) {
+          case '/api/v1/auth/login':
+            return _json({
+              'token': 'jwt',
+              'usuario': {'id': 'u1', 'nombre': 'Equipo', 'rol': rol},
+            }, 200);
+          case '/api/v1/auth/yo':
+            return _json({
+              'nombre': 'Equipo',
+              'rol': rol,
+              'fecha_nac': '2000-01-01',
+            }, 200);
+          default:
+            return _json([], 200);
+        }
+      });
+      final (usuario, _, _) = await _nuevo(
+        cliente: conRol('usuario'),
+        servidor: url,
+      );
+      await usuario.iniciarSesion('ana@brota.mx', 'secreto123');
+      expect(usuario.esAdmin, isFalse);
+
+      final (admin, _, _) = await _nuevo(
+        cliente: conRol('administrador'),
+        servidor: url,
+      );
+      await admin.iniciarSesion('admin@brota.mx', 'secreto123');
+      expect(admin.esAdmin, isTrue);
+      await admin.cerrarSesion();
+      expect(admin.esAdmin, isFalse);
+      await pumpEventQueue(times: 50);
+      usuario.dispose();
+      admin.dispose();
+    });
+
     test('sin servidor oficial la app queda solo local', () async {
       final (e, _, _) = await _nuevo();
       await e.registrarse(

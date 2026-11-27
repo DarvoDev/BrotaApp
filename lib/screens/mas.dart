@@ -155,13 +155,14 @@ class MasScreen extends StatelessWidget {
                     subtitulo: 'Muro anónimo y moderado (CU-14, CU-23)',
                     alTocar: () => _abrir(context, const ComunidadScreen()),
                   ),
-                  _Entrada(
-                    icono: Icons.admin_panel_settings_outlined,
-                    titulo: 'Administración',
-                    subtitulo:
-                        'Catálogo, contenidos y reportes (CU-18, CU-19, CU-24)',
-                    alTocar: () => _abrir(context, AdminScreen()),
-                  ),
+                  if (estado.esAdmin)
+                    _Entrada(
+                      icono: Icons.admin_panel_settings_outlined,
+                      titulo: 'Administración',
+                      subtitulo:
+                          'Catálogo, contenidos y reportes (CU-18, CU-19, CU-24)',
+                      alTocar: () => _abrir(context, AdminScreen()),
+                    ),
                 ],
               ),
             ),

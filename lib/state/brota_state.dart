@@ -465,7 +465,11 @@ class BrotaState extends ChangeNotifier {
   String get claveCifrado => _claveCifrado;
 
   bool get tieneCuenta => cuenta != null;
-  bool get esAdmin => cuenta?.rol == Rol.administrador;
+  /// El rol de administrador lo da el servidor (cuenta ADMIN_CORREO); nadie
+  /// puede elegirlo al registrarse.
+  bool get esAdmin =>
+      cuenta != null &&
+      (cuenta!.rol == Rol.administrador || rolServidor == 'administrador');
   String get nombreUsuario {
     final n = cuenta?.nombre.trim() ?? '';
     return n.isEmpty ? 'ahí' : n;
@@ -1145,6 +1149,7 @@ class BrotaState extends ChangeNotifier {
   Future<void> cerrarSesion() async {
     cuenta = null;
     _token = null;
+    rolServidor = 'usuario';
     _reconexionFallida = false;
     await _credenciales?.borrar();
     notifyListeners();
