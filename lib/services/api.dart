@@ -4,10 +4,14 @@ import 'package:http/http.dart' as http;
 
 import '../models/modelos.dart';
 
-/// Servidor oficial con el que se compila el APK que se reparte:
-///   flutter build apk --release --dart-define=BROTA_SERVIDOR=https://brota.midominio.com
-/// Vacío en desarrollo: la pantalla del servidor muestra el campo de dirección.
-const String servidorPredeterminado = String.fromEnvironment('BROTA_SERVIDOR');
+/// Servidor oficial (producción). Cualquier build apunta aquí por defecto.
+/// Para otro servidor al compilar:
+///   flutter run --dart-define=BROTA_SERVIDOR=http://10.0.2.2:8000
+/// o en la app: Más → Servidor y sincronización → «Usar otro servidor».
+const String servidorPredeterminado = String.fromEnvironment(
+  'BROTA_SERVIDOR',
+  defaultValue: 'https://api-brota.neytwo.com',
+);
 
 /// Error devuelto por el servidor o por la red, con mensaje en español.
 class ErrorApi implements Exception {

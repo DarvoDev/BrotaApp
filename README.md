@@ -83,13 +83,16 @@ flutter test            # pruebas
 BROTA_API=http://localhost:8000 flutter test test/e2e_backend_test.dart
 ```
 
-### APK para repartir (con el servidor ya configurado)
+### Servidor de producción
+
+La app apunta por defecto a **`https://api-brota.neytwo.com`**: la pantalla Más → Servidor y sincronización solo pide la contraseña y «Conectar» (queda «Usar otro servidor» por si acaso).
 
 ```
-flutter build apk --release --dart-define=BROTA_SERVIDOR=https://brota.midominio.com
+flutter build apk --release                                         # producción
+flutter run --dart-define=BROTA_SERVIDOR=http://10.0.2.2:8000       # backend local
 ```
 
-Con `BROTA_SERVIDOR` la pantalla Más → Servidor y sincronización ya no pide dirección: solo la contraseña y «Conectar» (queda «Usar otro servidor» por si acaso). Debe ser HTTPS con certificado válido (Let's Encrypt en Backend-Brota: `BROTA_TLS=<correo>`); Android bloquea HTTP y certificados autofirmados.
+El servidor debe ser HTTPS con certificado válido: Android bloquea HTTP y certificados autofirmados (salvo 10.0.2.2/localhost).
 
 Para usar el servidor desde el emulador Android: en Backend-Brota `docker compose up -d --build`, y en la app Más → Servidor y sincronización → `http://10.0.2.2:8000`. HTTP sin cifrar solo se permite hacia el emulador y localhost (`res/xml/network_security_config.xml`); en producción, HTTPS.
 
