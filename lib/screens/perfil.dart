@@ -37,7 +37,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   @override
   void initState() {
     super.initState();
-    final estado = BrotaScope.of(context);
+    final estado = BrotaScope.read(context);
     _avatar = estado.avatar;
     _mascota = estado.mascota;
     _nombreMascota.text = estado.mascotaNombre;

@@ -28,6 +28,10 @@ class BrotaScope extends InheritedNotifier<BrotaState> {
 
   static BrotaState of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<BrotaScope>()!.notifier!;
+
+  /// Lee el estado sin suscribirse: se puede usar en initState() y callbacks.
+  static BrotaState read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<BrotaScope>()!.notifier!;
 }
 
 class BrotaApp extends StatelessWidget {

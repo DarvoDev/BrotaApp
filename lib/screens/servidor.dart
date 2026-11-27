@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../main.dart';
+import '../services/api.dart';
 import '../theme.dart';
 
 /// Servidor opcional (arquitectura de tres capas: app → API REST → base de
@@ -19,13 +20,19 @@ class _ServidorScreenState extends State<ServidorScreen> {
   bool _cargando = false;
   String? _mensaje;
 
+  /// Con servidor oficial compilado, el campo de dirección queda oculto
+  /// salvo que la persona elija «Usar otro servidor».
+  bool _otroServidor = servidorPredeterminado.isEmpty;
+
   @override
   void initState() {
     super.initState();
-    final estado = BrotaScope.of(context);
-    _url.text = estado.servidorUrl.isEmpty
-        ? 'http://10.0.2.2:8000'
-        : estado.servidorUrl;
+    final estado = BrotaScope.read(context);
+    _url.text = estado.servidorUrl.isNotEmpty
+        ? estado.servidorUrl
+        : servidorPredeterminado.isNotEmpty
+        ? servidorPredeterminado
+        : 'http://10.0.2.2:8000';
   }
 
   @override
@@ -111,15 +118,21 @@ class _ServidorScreenState extends State<ServidorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      controller: _url,
-                      keyboardType: TextInputType.url,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Dirección del servidor',
-                        helperText: 'Emulador: http://10.0.2.2:8000 · producción: https://…',
+                    if (_otroServidor)
+                      TextField(
+                        controller: _url,
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Dirección del servidor',
+                          helperText: 'Emulador: http://10.0.2.2:8000 · producción: https://…',
+                        ),
+                      )
+                    else
+                      Text(
+                        'Servidor de Brota',
+                        style: TextStyle(color: e.onSurfaceVariant),
                       ),
-                    ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _password,
@@ -134,6 +147,11 @@ class _ServidorScreenState extends State<ServidorScreen> {
                       icon: const Icon(Icons.cloud_outlined, size: 18),
                       label: const Text('Conectar'),
                     ),
+                    if (!_otroServidor)
+                      TextButton(
+                        onPressed: () => setState(() => _otroServidor = true),
+                        child: const Text('Usar otro servidor'),
+                      ),
                   ],
                 ),
               )

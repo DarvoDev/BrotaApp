@@ -18,7 +18,7 @@ class _MotivacionScreenState extends State<MotivacionScreen> {
   @override
   void initState() {
     super.initState();
-    final estado = BrotaScope.of(context);
+    final estado = BrotaScope.read(context);
     final mensajes = estado.mensajes;
     final diario = estado.mensajeMotivacionalDelDia;
     final i = mensajes.indexWhere((m) => m.id == diario.id);
