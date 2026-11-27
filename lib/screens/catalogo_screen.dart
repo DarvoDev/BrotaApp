@@ -39,7 +39,7 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
     await BrotaScope.of(context).agregarMetaDelCatalogo(m.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('«${m.titulo}» ya está en tus metas de hoy 🌱')),
+      SnackBar(content: Text('«${m.titulo}» ya está en tus misiones de hoy 🌱')),
     );
   }
 

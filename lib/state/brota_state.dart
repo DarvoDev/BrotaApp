@@ -1029,7 +1029,7 @@ class BrotaState extends ChangeNotifier {
     }
     if (nombre.trim().isEmpty) return 'Escribe tu nombre';
     final edad = edadDe(fechaNac);
-    if (edad == null) return 'Escribe tu fecha de nacimiento (AAAA-MM-DD)';
+    if (edad == null) return 'Escribe tu fecha de nacimiento (DD-MM-AAAA)';
     if (edad < edadMinima) {
       return 'Brota es para personas de $edadMinima años o más. '
           'Gracias por tu interés 💚';

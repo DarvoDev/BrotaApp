@@ -1,5 +1,6 @@
 import 'package:brota_app/main.dart';
 import 'package:brota_app/models/modelos.dart';
+import 'package:brota_app/screens/perfil.dart';
 import 'package:brota_app/services/almacen.dart';
 import 'package:brota_app/state/brota_state.dart';
 import 'package:flutter/material.dart';
@@ -229,6 +230,36 @@ void main() {
       expect(e.xpTotal, xp);
       expect(e.racha.dias, 1);
     });
+  });
+
+  group('Fecha de nacimiento DD-MM-AAAA', () {
+    test('se convierte a AAAA-MM-DD para guardarla', () {
+      expect(fechaIsoDesde('25-12-2000'), '2000-12-25');
+      expect(fechaIsoDesde('5/1/2008'), '2008-01-05');
+      expect(fechaIsoDesde('31-02-2000'), ''); // no existe
+      expect(fechaIsoDesde('2000-12-25'), ''); // formato viejo
+      expect(fechaParaMostrar('2000-12-25'), '25-12-2000');
+    });
+  });
+
+  testWidgets('lo añadido desde el catálogo aparece en Misiones de hoy', (
+    t,
+  ) async {
+    final estado = BrotaState(servidor: '', almacen: AlmacenMemoria());
+    await estado.iniciar();
+    await estado.omitirAnimo();
+    final extra = estado.catalogo.firstWhere(
+      (m) => !estado.metasHoy.any((x) => x.id == m.id),
+    );
+    await estado.agregarMetaDelCatalogo(extra.id);
+    await t.pumpWidget(BrotaApp(estado: estado));
+    await t.pumpAndSettle();
+    await t.scrollUntilVisible(
+      find.text(extra.titulo),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(extra.titulo), findsOneWidget);
   });
 
   testWidgets('la app abre con el chequeo de ánimo y el botón S.O.S', (

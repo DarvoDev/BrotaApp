@@ -256,12 +256,16 @@ class InicioScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Column(
             children: [
-              for (final m in estado.metasHoy)
+              for (final m in estado.metasTotalesHoy)
                 _FilaActividad(
                   actividad: m,
                   detalle: '${m.duracionMin} min',
                   hecha: estado.completadaHoy(m),
                   alTocar: () => _alternar(context, estado, m),
+                  // Las añadidas desde el catálogo se pueden quitar.
+                  alEliminar: estado.metasExtra.contains(m.id)
+                      ? () => estado.quitarMetaExtra(m.id)
+                      : null,
                 ),
             ],
           ),

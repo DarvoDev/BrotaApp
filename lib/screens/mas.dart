@@ -47,8 +47,8 @@ class MasScreen extends StatelessWidget {
                         child: Text(
                           estado.conectado
                               ? (estado.hayCambiosPendientes
-                                    ? 'Respaldando $pendientes cambio(s)…'
-                                    : 'Tu progreso está respaldado')
+                                    ? 'Conectado · respaldando $pendientes cambio(s)…'
+                                    : 'Conectado')
                               : 'Todo está guardado en este dispositivo',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),

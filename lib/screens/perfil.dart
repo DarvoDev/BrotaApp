@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../main.dart';
 import '../models/modelos.dart';
@@ -134,7 +135,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       correo: _correo.text,
       password: _password.text,
       nombre: _nombre.text,
-      fechaNac: _fechaNac.text,
+      fechaNac: _fechaIso,
       aceptaPrivacidad: _aceptaPrivacidad,
       consentimientoTutor: _consentimientoTutor,
     );
@@ -153,7 +154,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       password: _password.text,
       nombre: _nombre.text,
       apellidos: _apellidos.text,
-      fechaNac: _fechaNac.text,
+      fechaNac: _fechaIso,
       aceptaPrivacidad: _aceptaPrivacidad,
       consentimientoTutor: _consentimientoTutor,
       rol: _esAdmin ? Rol.administrador : Rol.usuario,
@@ -182,9 +183,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
       );
   }
 
+  /// La persona escribe DD-MM-AAAA; la app y el servidor guardan AAAA-MM-DD.
+  String get _fechaIso => fechaIsoDesde(_fechaNac.text);
+
   /// Menores de 18 (y de 13 o más) necesitan consentimiento del tutor.
   bool get _esMenor {
-    final edad = BrotaScope.of(context).edadDe(_fechaNac.text);
+    final edad = BrotaScope.of(context).edadDe(_fechaIso);
     return edad != null && edad >= edadMinima && edad < edadMayoria;
   }
 
@@ -198,7 +202,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       helpText: 'Fecha de nacimiento',
     );
     if (f == null) return;
-    setState(() => _fechaNac.text = claveDia(f));
+    setState(() => _fechaNac.text = fechaParaMostrar(claveDia(f)));
   }
 
   Future<void> _invitado() async {
@@ -380,13 +384,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: _fechaNac,
-                  keyboardType: TextInputType.datetime,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [_FormatoFecha()],
                   textInputAction: TextInputAction.done,
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _registrarse(),
                   decoration: InputDecoration(
                     labelText: 'Fecha de nacimiento',
-                    hintText: 'AAAA-MM-DD',
+                    hintText: 'DD-MM-AAAA',
                     helperText: 'Brota es para personas de 13 años o más',
                     suffixIcon: IconButton(
                       tooltip: 'Elegir fecha',
@@ -520,7 +525,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
               if (cuenta.apellidos.isNotEmpty)
                 _Dato(label: 'Apellidos', valor: cuenta.apellidos),
               if (cuenta.fechaNac.isNotEmpty)
-                _Dato(label: 'Nacimiento', valor: cuenta.fechaNac),
+                _Dato(
+                  label: 'Nacimiento',
+                  valor: fechaParaMostrar(cuenta.fechaNac),
+                ),
               _Dato(label: 'Rol', valor: cuenta.rol.texto),
               const SizedBox(height: 6),
               Text(
@@ -693,3 +701,45 @@ Future<void> mostrarAvisoPrivacidad(BuildContext context) => showDialog<void>(
     ],
   ),
 );
+
+/// «25122000» → «25-12-2000»: solo dígitos y los guiones se ponen solos.
+class _FormatoFecha extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue anterior,
+    TextEditingValue nuevo,
+  ) {
+    final digitos = nuevo.text.replaceAll(RegExp(r'\D'), '');
+    final d = digitos.length > 8 ? digitos.substring(0, 8) : digitos;
+    final b = StringBuffer();
+    for (var i = 0; i < d.length; i++) {
+      if (i == 2 || i == 4) b.write('-');
+      b.write(d[i]);
+    }
+    final texto = b.toString();
+    return TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+  }
+}
+
+/// «25-12-2000» (o con / o .) → «2000-12-25». Vacío si no es una fecha real.
+String fechaIsoDesde(String texto) {
+  final m = RegExp(r'^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$').firstMatch(
+    texto.trim(),
+  );
+  if (m == null) return '';
+  final dia = int.parse(m[1]!), mes = int.parse(m[2]!), anio = int.parse(m[3]!);
+  final f = DateTime(anio, mes, dia);
+  if (f.year != anio || f.month != mes || f.day != dia) return '';
+  return claveDia(f);
+}
+
+/// «2000-12-25» → «25-12-2000».
+String fechaParaMostrar(String iso) {
+  final f = DateTime.tryParse(iso);
+  if (f == null) return iso;
+  String dos(int n) => n.toString().padLeft(2, '0');
+  return '${dos(f.day)}-${dos(f.month)}-${f.year}';
+}
