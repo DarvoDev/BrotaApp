@@ -27,7 +27,10 @@ class RachasScreen extends StatelessWidget {
         Row(
           children: [
             const Expanded(
-              child: Text('Rachas', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
+              child: Text(
+                'Rachas',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+              ),
             ),
             Text(fechaCorta(hoy), style: TextStyle(color: e.onSurfaceVariant)),
           ],
@@ -43,15 +46,19 @@ class RachasScreen extends StatelessWidget {
         const SizedBox(height: 20),
         Column(
           children: [
-          Image.asset(
-                  'lib/assets/images/Racha.gif',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.contain,
-                ),
+            Image.asset(
+              'lib/assets/images/Racha.gif',
+              width: 60,
+              height: 60,
+              fit: BoxFit.contain,
+            ),
             Text(
               '${estado.racha.dias}',
-              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, height: 1.1),
+              style: const TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
             ),
             Text(estado.racha.dias == 1 ? 'día de racha' : 'días de racha'),
           ],
@@ -61,7 +68,10 @@ class RachasScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tus escudos', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text(
+                'Tus escudos',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -71,11 +81,11 @@ class RachasScreen extends StatelessWidget {
                       child: Opacity(
                         opacity: i < escudos ? 1 : 0.25,
                         child: Image.asset(
-                  'lib/assets/images/Escudo.jpg',
-                  width: 30,
-                  height: 30,
-                  fit: BoxFit.contain,
-                ),
+                          'lib/assets/images/Escudo.jpg',
+                          width: 30,
+                          height: 30,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   const SizedBox(width: 4),
@@ -102,7 +112,10 @@ class RachasScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tu semana', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text(
+                'Tu semana',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

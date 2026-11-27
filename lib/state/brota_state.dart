@@ -13,6 +13,7 @@ import '../logic/perceptron.dart';
 import '../models/modelos.dart';
 import '../services/almacen.dart';
 import '../services/api.dart';
+import '../services/credenciales.dart';
 import '../services/cifrado.dart';
 import '../services/notificaciones.dart';
 import '../services/pdf_historial.dart';
@@ -33,7 +34,9 @@ class BrotaState extends ChangeNotifier {
     Notificador? notificador,
     http.Client? clienteHttp,
     String? servidor,
+    Credenciales? credenciales,
   }) : _almacen = almacen, // ignore: prefer_initializing_formals
+       _credenciales = credenciales, // ignore: prefer_initializing_formals
        _servidorAuto = servidor ?? servidorPredeterminado,
        _ahora = ahora ?? DateTime.now,
        _notificador = notificador, // ignore: prefer_initializing_formals
@@ -46,6 +49,11 @@ class BrotaState extends ChangeNotifier {
 
   /// Servidor al que la cuenta se conecta sola (vacío = solo local).
   final String _servidorAuto;
+
+  /// Contraseña en el llavero del teléfono para reconectar sin preguntar.
+  final Credenciales? _credenciales;
+  bool _reconectando = false;
+  bool _reconexionFallida = false;
 
   // ------------------------- Perceptrón de riesgo (elemento innovador) -----
   PerceptronRiesgo perceptron = PerceptronRiesgo();
@@ -274,10 +282,32 @@ class BrotaState extends ChangeNotifier {
   /// Hay servidor oficial configurado en esta versión de la app.
   bool get respaldoDisponible => _servidorAuto.isNotEmpty;
 
-  /// Tiene cuenta pero el respaldo no está conectado (registro sin internet o
-  /// sesión del servidor vencida): se pide la contraseña una sola vez.
+  /// Último recurso: la reconexión automática no pudo (no hay contraseña en
+  /// el llavero o el servidor la rechazó). Sin red no se pide nada.
   bool get necesitaReconectar =>
-      respaldoDisponible && cuenta != null && !conectado;
+      respaldoDisponible && cuenta != null && !conectado && _reconexionFallida;
+
+  /// Vuelve a iniciar sesión con la contraseña del llavero, sin molestar:
+  /// cuando el token del servidor vence (7 días) o la cuenta se creó sin red.
+  Future<bool> _reconectarSola() async {
+    if (_reconectando || !respaldoDisponible || cuenta == null) return false;
+    final password = await _credenciales?.leer();
+    if (password == null) {
+      _reconexionFallida = true;
+      notifyListeners();
+      return false;
+    }
+    _reconectando = true;
+    try {
+      final error = await conectarServidor(_servidorAuto, password);
+      // Sin red no es un fallo: se reintenta al volver a abrir la app.
+      _reconexionFallida = error != null && error != errorSinConexion;
+      notifyListeners();
+      return error == null;
+    } finally {
+      _reconectando = false;
+    }
+  }
 
   Future<String?> reconectar(String password) =>
       conectarServidor(_servidorAuto, password);
@@ -696,6 +726,8 @@ class BrotaState extends ChangeNotifier {
     if (conectado) {
       _programarSync();
       unawaited(refrescarFantasma());
+    } else if (respaldoDisponible && cuenta != null) {
+      unawaited(_reconectarSola()); // cuenta creada sin red o sesión vencida
     }
   }
 
@@ -1049,6 +1081,7 @@ class BrotaState extends ChangeNotifier {
     await _guardar();
     // El respaldo se conecta solo (crea la cuenta también en el servidor).
     if (respaldoDisponible) {
+      await _credenciales?.guardar(password);
       unawaited(conectarServidor(_servidorAuto, password));
     }
     return true;
@@ -1068,8 +1101,9 @@ class BrotaState extends ChangeNotifier {
       if (!c.verificar(password, _hash)) return false;
       notifyListeners();
       await _guardar();
-      if (respaldoDisponible && !conectado) {
-        unawaited(conectarServidor(_servidorAuto, password));
+      if (respaldoDisponible) {
+        await _credenciales?.guardar(password);
+        if (!conectado) unawaited(conectarServidor(_servidorAuto, password));
       }
       return true;
     }
@@ -1092,6 +1126,7 @@ class BrotaState extends ChangeNotifier {
       servidorUrl = _servidorAuto;
       _token = sesion.token;
       rolServidor = sesion.rol;
+      await _credenciales?.guardar(password);
       notifyListeners();
       await _guardar();
       unawaited(_alConectar());
@@ -1110,6 +1145,8 @@ class BrotaState extends ChangeNotifier {
   Future<void> cerrarSesion() async {
     cuenta = null;
     _token = null;
+    _reconexionFallida = false;
+    await _credenciales?.borrar();
     notifyListeners();
     await _guardar();
   }
@@ -1539,10 +1576,12 @@ class BrotaState extends ChangeNotifier {
           '${r.duplicados.length} ya estaban en el servidor';
     } on ErrorApi catch (e) {
       if (e.codigo == 401) {
-        // Sesión del servidor vencida: se pedirá la contraseña en «Más».
+        // Sesión del servidor vencida (7 días): se reconecta sola con la
+        // contraseña del llavero y reenvía los cambios.
         _token = null;
         notifyListeners();
         await _guardar();
+        if (await _reconectarSola()) return 'Sincronizado';
       }
       return '${e.mensaje}. Tus cambios siguen guardados y se enviarán después';
     }
@@ -1575,6 +1614,8 @@ class BrotaState extends ChangeNotifier {
       servidorUrl = url.trim();
       _token = sesion.token;
       rolServidor = sesion.rol;
+      _reconexionFallida = false;
+      await _credenciales?.guardar(password);
       notifyListeners();
       await _guardar();
       await _alConectar();

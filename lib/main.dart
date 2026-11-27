@@ -7,6 +7,7 @@ import 'screens/mas.dart';
 import 'screens/rachas.dart';
 import 'screens/sos.dart';
 import 'services/almacen.dart';
+import 'services/credenciales.dart';
 import 'services/notificaciones.dart';
 import 'state/brota_state.dart';
 import 'theme.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   final estado = BrotaState(
     almacen: AlmacenPrefs(),
     notificador: NotificadorLocal(),
+    credenciales: CredencialesSeguras(),
   );
   await estado.iniciar();
   runApp(BrotaApp(estado: estado));
@@ -23,8 +25,11 @@ Future<void> main() async {
 
 /// Da acceso al estado desde cualquier pantalla y la redibuja cuando cambia.
 class BrotaScope extends InheritedNotifier<BrotaState> {
-  const BrotaScope({super.key, required BrotaState estado, required super.child})
-    : super(notifier: estado);
+  const BrotaScope({
+    super.key,
+    required BrotaState estado,
+    required super.child,
+  }) : super(notifier: estado);
 
   static BrotaState of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<BrotaScope>()!.notifier!;
@@ -135,11 +140,31 @@ class _PrincipalState extends State<Principal> with WidgetsBindingObserver {
         selectedIndex: _pestana,
         onDestinationSelected: _ir,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Inicio'),
-          NavigationDestination(icon: Icon(Icons.park_outlined), selectedIcon: Icon(Icons.park), label: 'Jardín'),
-          NavigationDestination(icon: Icon(Icons.local_fire_department_outlined), selectedIcon: Icon(Icons.local_fire_department), label: 'Rachas'),
-          NavigationDestination(icon: Icon(Icons.more_horiz_outlined), selectedIcon: Icon(Icons.more_horiz), label: 'Más'),
-          NavigationDestination(icon: Icon(Icons.sos_outlined), selectedIcon: Icon(Icons.sos), label: 'S.O.S'),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.park_outlined),
+            selectedIcon: Icon(Icons.park),
+            label: 'Jardín',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.local_fire_department_outlined),
+            selectedIcon: Icon(Icons.local_fire_department),
+            label: 'Rachas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz_outlined),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'Más',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sos_outlined),
+            selectedIcon: Icon(Icons.sos),
+            label: 'S.O.S',
+          ),
         ],
       ),
     );

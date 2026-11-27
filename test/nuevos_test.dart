@@ -6,6 +6,7 @@ import 'package:brota_app/logic/clasificador.dart';
 import 'package:brota_app/logic/perceptron.dart';
 import 'package:brota_app/models/modelos.dart';
 import 'package:brota_app/services/almacen.dart';
+import 'package:brota_app/services/credenciales.dart';
 import 'package:brota_app/services/notificaciones.dart';
 import 'package:brota_app/state/brota_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,11 +26,13 @@ Future<(BrotaState, _Reloj, AlmacenMemoria)> _nuevo({
   Notificador? notificador,
   http.Client? cliente,
   String servidor = '',
+  Credenciales? credenciales,
 }) async {
   final reloj = _Reloj(inicio ?? DateTime(2026, 11, 9, 9)); // lunes
   final almacen = AlmacenMemoria();
   final e = BrotaState(
     servidor: servidor,
+    credenciales: credenciales,
     almacen: almacen,
     ahora: reloj.call,
     notificador: notificador,
@@ -644,6 +647,68 @@ void main() {
         e.dispose();
       },
     );
+
+    test('token vencido: se reconecta sola sin pedir la contraseña', () async {
+      var vigente = 'jwt-1';
+      var emitidos = 0;
+      final rutas = <String>[];
+      final cliente = MockClient((req) async {
+        rutas.add('${req.method} ${req.url.path}');
+        switch (req.url.path) {
+          case '/api/v1/salud':
+            return _json({'estado': 'ok'}, 200);
+          case '/api/v1/auth/login':
+            emitidos++;
+            return _json({
+              'token': vigente,
+              'usuario': {'id': 'u1', 'nombre': 'Ana', 'rol': 'usuario'},
+            }, 200);
+          case '/api/v1/sync':
+            if (req.headers['Authorization'] != 'Bearer $vigente') {
+              return _json({'detail': 'La sesión expiró'}, 401);
+            }
+            final ids = [
+              for (final ev in (jsonDecode(req.body)['eventos'] as List))
+                ev['id'] as String,
+            ];
+            return _json({
+              'aceptados': ids,
+              'duplicados': [],
+              'rechazados': [],
+            }, 200);
+          default:
+            return _json([], 200);
+        }
+      });
+      final llavero = CredencialesMemoria();
+      final (e, _, _) = await _nuevo(
+        cliente: cliente,
+        servidor: url,
+        credenciales: llavero,
+      );
+      await e.registrarse(
+        correo: 'ana@brota.mx',
+        password: 'secreto123',
+        nombre: 'Ana',
+        fechaNac: '2000-01-01',
+        aceptaPrivacidad: true,
+      );
+      await pumpEventQueue(times: 50);
+      expect(e.conectado, isTrue);
+      expect(llavero.password, 'secreto123'); // en el llavero, no en prefs
+
+      vigente = 'jwt-2'; // pasaron 7 días: el token viejo ya no sirve
+      await e.crearTarea('Leer', 'Estudio', 1);
+      await e.sincronizar();
+      expect(emitidos, 2); // volvió a iniciar sesión sola
+      expect(e.conectado, isTrue);
+      expect(e.necesitaReconectar, isFalse);
+      expect(e.cambiosPendientes, isEmpty);
+
+      await e.cerrarSesion();
+      expect(llavero.password, isNull);
+      e.dispose();
+    });
 
     test('sin servidor oficial la app queda solo local', () async {
       final (e, _, _) = await _nuevo();

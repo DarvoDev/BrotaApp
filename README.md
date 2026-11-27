@@ -90,7 +90,7 @@ La app apunta por defecto a **`https://api-brota.neytwo.com`** y se conecta sola
 - **Crear cuenta** (Mi perfil): se crea también en el servidor y empieza a respaldar.
 - **Iniciar sesión**: se conecta; en un teléfono nuevo trae la cuenta del servidor.
 - **Sincronización automática**: unos segundos después de cada cambio y al abrir la app.
-- Si la sesión del servidor vence (`BROTA_JWT_DIAS`, 90 días) o la cuenta se creó sin internet, «Más» pide la contraseña una vez.
+- La contraseña se guarda cifrada en el llavero del teléfono (Android Keystore, `flutter_secure_storage`): cuando el token del servidor vence (7 días) o la cuenta se creó sin internet, la app vuelve a iniciar sesión sola. Solo si eso falla, «Más» pide la contraseña.
 - El modo invitado queda solo en el teléfono.
 
 ```

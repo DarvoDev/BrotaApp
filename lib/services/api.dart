@@ -13,6 +13,8 @@ const String servidorPredeterminado = String.fromEnvironment(
   defaultValue: 'https://api-brota.neytwo.com',
 );
 
+const String errorSinConexion = 'No hay conexión con el servidor';
+
 /// Error devuelto por el servidor o por la red, con mensaje en español.
 class ErrorApi implements Exception {
   ErrorApi(this.mensaje, {this.codigo = 0});
@@ -94,7 +96,7 @@ class ServicioApi {
     } on ErrorApi {
       rethrow;
     } catch (_) {
-      throw ErrorApi('No hay conexión con el servidor');
+      throw ErrorApi(errorSinConexion);
     }
     final texto = utf8.decode(r.bodyBytes);
     final datos = texto.isEmpty ? null : jsonDecode(texto);

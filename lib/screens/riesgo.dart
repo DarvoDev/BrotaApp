@@ -22,8 +22,14 @@ class RiesgoScreen extends StatelessWidget {
           'mascota no cambian.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Reiniciar')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Reiniciar'),
+          ),
         ],
       ),
     );
@@ -43,7 +49,13 @@ class RiesgoScreen extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(a, style: const TextStyle(fontSize: 13.5))),
-          Text(b, style: const TextStyle(fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()])),
+          Text(
+            b,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -80,8 +92,18 @@ class RiesgoScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  fila('Hoy', hoy == null ? 'Aún aprendiendo tu ritmo' : '${hoy.texto} (z = ${hoy.puntaje.toStringAsFixed(2)})'),
-                  fila('Mañana (en vivo)', manana == null ? 'Aún aprendiendo tu ritmo' : '${manana.texto} (z = ${manana.puntaje.toStringAsFixed(2)})'),
+                  fila(
+                    'Hoy',
+                    hoy == null
+                        ? 'Aún aprendiendo tu ritmo'
+                        : '${hoy.texto} (z = ${hoy.puntaje.toStringAsFixed(2)})',
+                  ),
+                  fila(
+                    'Mañana (en vivo)',
+                    manana == null
+                        ? 'Aún aprendiendo tu ritmo'
+                        : '${manana.texto} (z = ${manana.puntaje.toStringAsFixed(2)})',
+                  ),
                   fila('Días aprendidos', '${p.ejemplos}'),
                   const SizedBox(height: 6),
                   Text(
@@ -100,22 +122,58 @@ class RiesgoScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Expanded(child: Text('Entrada', style: TextStyle(fontWeight: FontWeight.w700))),
-                      SizedBox(width: 56, child: Text('x', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w700, color: e.onSurfaceVariant))),
-                      SizedBox(width: 60, child: Text('peso', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w700, color: e.onSurfaceVariant))),
+                      const Expanded(
+                        child: Text(
+                          'Entrada',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 56,
+                        child: Text(
+                          'x',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: e.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          'peso',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: e.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(),
-                  for (var i = 0; i < PerceptronRiesgo.nombresEntradas.length; i++)
+                  for (
+                    var i = 0;
+                    i < PerceptronRiesgo.nombresEntradas.length;
+                    i++
+                  )
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
                       child: Row(
                         children: [
-                          Expanded(child: Text(PerceptronRiesgo.nombresEntradas[i], style: const TextStyle(fontSize: 13.5))),
+                          Expanded(
+                            child: Text(
+                              PerceptronRiesgo.nombresEntradas[i],
+                              style: const TextStyle(fontSize: 13.5),
+                            ),
+                          ),
                           SizedBox(
                             width: 56,
                             child: Text(
-                              manana == null ? '—' : manana.entradas[i].toStringAsFixed(2),
+                              manana == null
+                                  ? '—'
+                                  : manana.entradas[i].toStringAsFixed(2),
                               textAlign: TextAlign.right,
                               style: const TextStyle(fontSize: 13.5),
                             ),
@@ -125,7 +183,10 @@ class RiesgoScreen extends StatelessWidget {
                             child: Text(
                               p.pesos[i].toStringAsFixed(2),
                               textAlign: TextAlign.right,
-                              style: TextStyle(fontSize: 13.5, color: p.pesos[i] < 0 ? e.primary : e.error),
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: p.pesos[i] < 0 ? e.primary : e.error,
+                              ),
                             ),
                           ),
                         ],
@@ -156,4 +217,3 @@ class RiesgoScreen extends StatelessWidget {
     );
   }
 }
-

@@ -20,20 +20,14 @@ class CifradoLocal {
   static List<int> _clave(String secreto) =>
       sha256.convert(utf8.encode(secreto)).bytes;
 
-  static Uint8List _secuencia(
-    List<int> clave,
-    List<int> nonce,
-    int longitud,
-  ) {
+  static Uint8List _secuencia(List<int> clave, List<int> nonce, int longitud) {
     final salida = BytesBuilder();
     final hmac = Hmac(sha256, clave);
     var bloque = 0;
     while (salida.length < longitud) {
       final contador = Uint8List(4)
         ..buffer.asByteData().setUint32(0, bloque, Endian.big);
-      salida.add(
-        hmac.convert([...nonce, ...contador]).bytes,
-      );
+      salida.add(hmac.convert([...nonce, ...contador]).bytes);
       bloque++;
     }
     return salida.takeBytes();
@@ -44,9 +38,9 @@ class CifradoLocal {
     final llave = _clave(clave);
     final datos = utf8.encode(texto);
     final flujo = _secuencia(llave, nonce, datos.length);
-    final cifrado = Uint8List.fromList(
-      [for (var i = 0; i < datos.length; i++) datos[i] ^ flujo[i]],
-    );
+    final cifrado = Uint8List.fromList([
+      for (var i = 0; i < datos.length; i++) datos[i] ^ flujo[i],
+    ]);
     final etiqueta = Hmac(sha256, llave).convert([...nonce, ...cifrado]).bytes;
     return base64.encode([...nonce, ...etiqueta, ...cifrado]);
   }
@@ -65,9 +59,9 @@ class CifradoLocal {
       }
     }
     final flujo = _secuencia(llave, nonce, cifrado.length);
-    final plano = Uint8List.fromList(
-      [for (var i = 0; i < cifrado.length; i++) cifrado[i] ^ flujo[i]],
-    );
+    final plano = Uint8List.fromList([
+      for (var i = 0; i < cifrado.length; i++) cifrado[i] ^ flujo[i],
+    ]);
     return utf8.decode(plano);
   }
 }

@@ -550,7 +550,6 @@ class _FilaAdmin extends StatelessWidget {
   }
 }
 
-
 extension _Reportes on _AdminScreenState {
   Widget _seccionReportes(BrotaState estado, ColorScheme e) {
     final pendientes = estado.reportesPendientes;
@@ -572,18 +571,23 @@ extension _Reportes on _AdminScreenState {
                         Text('«${r.texto}»'),
                         Text(
                           '${r.motivo} · ${r.fecha}',
-                          style: TextStyle(color: e.onSurfaceVariant, fontSize: 12.5),
+                          style: TextStyle(
+                            color: e.onSurfaceVariant,
+                            fontSize: 12.5,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 8,
                           children: [
                             FilledButton.tonal(
-                              onPressed: () => estado.resolverReporte(r, ocultar: true),
+                              onPressed: () =>
+                                  estado.resolverReporte(r, ocultar: true),
                               child: const Text('Ocultar para todos'),
                             ),
                             OutlinedButton(
-                              onPressed: () => estado.resolverReporte(r, ocultar: false),
+                              onPressed: () =>
+                                  estado.resolverReporte(r, ocultar: false),
                               child: const Text('Mantener'),
                             ),
                           ],
@@ -614,12 +618,18 @@ class _VistaClasificacion extends StatelessWidget {
         children: [
           Text(
             'Diccionario: ${c.categoria.texto} · estilo ${c.estilo} · puntaje ${c.puntaje}',
-            style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
           if (c.coincidencias.isNotEmpty)
             Text(
               c.coincidencias
-                  .map((m) => '${m.termino} (${m.peso >= 0 ? '+' : ''}${m.peso})')
+                  .map(
+                    (m) => '${m.termino} (${m.peso >= 0 ? '+' : ''}${m.peso})',
+                  )
                   .join(' · '),
               style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),
             ),
