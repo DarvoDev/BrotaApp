@@ -5,78 +5,18 @@ import '../models/modelos.dart';
 /// en la app para que funcione sin conexión.
 class CatalogoMicroactividades {
   static final List<Microactividad> todas = [
-    Microactividad(
-      id: 'm-agua',
-      titulo: 'Tomar un vaso de agua',
-      esfuerzo: 1,
-      duracionMin: 1,
-    ),
-    Microactividad(
-      id: 'm-respirar',
-      titulo: 'Respirar profundo 1 minuto',
-      esfuerzo: 1,
-      duracionMin: 1,
-    ),
-    Microactividad(
-      id: 'm-estirar',
-      titulo: 'Estirar brazos y cuello',
-      esfuerzo: 1,
-      duracionMin: 2,
-    ),
-    Microactividad(
-      id: 'm-ventana',
-      titulo: 'Abrir la ventana y sentir el aire',
-      esfuerzo: 1,
-      duracionMin: 1,
-    ),
-    Microactividad(
-      id: 'm-pie',
-      titulo: 'Ponerte de pie y dar unos pasos',
-      esfuerzo: 1,
-      duracionMin: 2,
-    ),
-    Microactividad(
-      id: 'm-caminar10',
-      titulo: 'Caminar 10 minutos',
-      esfuerzo: 2,
-      duracionMin: 10,
-    ),
-    Microactividad(
-      id: 'm-estiramientos',
-      titulo: 'Estiramientos suaves 5 minutos',
-      esfuerzo: 2,
-      duracionMin: 5,
-    ),
-    Microactividad(
-      id: 'm-ordenar',
-      titulo: 'Ordenar un rincón pequeño',
-      esfuerzo: 2,
-      duracionMin: 5,
-    ),
-    Microactividad(
-      id: 'm-escaleras',
-      titulo: 'Subir y bajar escaleras una vez',
-      esfuerzo: 2,
-      duracionMin: 3,
-    ),
-    Microactividad(
-      id: 'm-caminar20',
-      titulo: 'Caminar 20 minutos al aire libre',
-      esfuerzo: 3,
-      duracionMin: 20,
-    ),
-    Microactividad(
-      id: 'm-rutina',
-      titulo: 'Rutina de movimiento de 15 minutos',
-      esfuerzo: 3,
-      duracionMin: 15,
-    ),
-    Microactividad(
-      id: 'm-bailar',
-      titulo: 'Bailar tres canciones',
-      esfuerzo: 3,
-      duracionMin: 10,
-    ),
+    Microactividad(id: 'm-agua', titulo: 'Tomar un vaso de agua', esfuerzo: 1, duracionMin: 1),
+    Microactividad(id: 'm-respirar', titulo: 'Respirar profundo 1 minuto', esfuerzo: 1, duracionMin: 1),
+    Microactividad(id: 'm-estirar', titulo: 'Estirar brazos y cuello', esfuerzo: 1, duracionMin: 2),
+    Microactividad(id: 'm-ventana', titulo: 'Abrir la ventana y sentir el aire', esfuerzo: 1, duracionMin: 1),
+    Microactividad(id: 'm-pie', titulo: 'Ponerte de pie y dar unos pasos', esfuerzo: 1, duracionMin: 2),
+    Microactividad(id: 'm-caminar10', titulo: 'Caminar 10 minutos', esfuerzo: 2, duracionMin: 10),
+    Microactividad(id: 'm-estiramientos', titulo: 'Estiramientos suaves 5 minutos', esfuerzo: 2, duracionMin: 5),
+    Microactividad(id: 'm-ordenar', titulo: 'Ordenar un rincón pequeño', esfuerzo: 2, duracionMin: 5),
+    Microactividad(id: 'm-escaleras', titulo: 'Subir y bajar escaleras una vez', esfuerzo: 2, duracionMin: 3),
+    Microactividad(id: 'm-caminar20', titulo: 'Caminar 20 minutos al aire libre', esfuerzo: 3, duracionMin: 20),
+    Microactividad(id: 'm-rutina', titulo: 'Rutina de movimiento de 15 minutos', esfuerzo: 3, duracionMin: 15),
+    Microactividad(id: 'm-bailar', titulo: 'Bailar tres canciones', esfuerzo: 3, duracionMin: 10),
   ];
 
   static List<Microactividad> buscar(int esfuerzo) =>
@@ -121,6 +61,7 @@ const List<RecursoAyuda> recursosAyuda = [
 const String mensajeSos =
     'Hola, no me estoy sintiendo bien y me vendría bien hablar contigo. '
     '¿Puedes llamarme cuando veas esto?';
+
 
 // ------------------------------------------- mensajes motivacionales ----
 //
@@ -240,12 +181,7 @@ const List<Decoracion> decoracionesTienda = [
   Decoracion(id: 'd-tulipan', emoji: '🌷', nombre: 'Tulipán', precio: 20),
   Decoracion(id: 'd-girasol', emoji: '🌻', nombre: 'Girasol', precio: 25),
   Decoracion(id: 'd-hongo', emoji: '🍄', nombre: 'Hongo', precio: 30),
-  Decoracion(
-    id: 'd-piedra',
-    emoji: '🪨',
-    nombre: 'Piedra con musgo',
-    precio: 30,
-  ),
+  Decoracion(id: 'd-piedra', emoji: '🪨', nombre: 'Piedra con musgo', precio: 30),
   Decoracion(id: 'd-mariposa', emoji: '🦋', nombre: 'Mariposa', precio: 40),
   Decoracion(id: 'd-nido', emoji: '🪺', nombre: 'Nido', precio: 45),
   Decoracion(id: 'd-banca', emoji: '🪑', nombre: 'Banca', precio: 60),

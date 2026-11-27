@@ -87,10 +87,7 @@ class _NuevaTareaState extends State<_NuevaTarea> {
               onSubmitted: (_) => _crear(),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Categoría',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+            const Text('Categoría', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
@@ -114,10 +111,7 @@ class _NuevaTareaState extends State<_NuevaTarea> {
               child: SegmentedButton<int>(
                 segments: [
                   for (var i = 0; i < nombresEsfuerzo.length; i++)
-                    ButtonSegment(
-                      value: i + 1,
-                      label: Text(nombresEsfuerzo[i]),
-                    ),
+                    ButtonSegment(value: i + 1, label: Text(nombresEsfuerzo[i])),
                 ],
                 selected: {_esfuerzo},
                 showSelectedIcon: false,

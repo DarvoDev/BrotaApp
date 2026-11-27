@@ -4,15 +4,7 @@ import '../main.dart';
 import '../models/modelos.dart';
 import '../theme.dart';
 
-const List<String> _nombresDias = [
-  'Lun',
-  'Mar',
-  'Mié',
-  'Jue',
-  'Vie',
-  'Sáb',
-  'Dom',
-];
+const List<String> _nombresDias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const List<int> _todosLosDias = [1, 2, 3, 4, 5, 6, 7];
 
 /// CU-08 Configurar recordatorios amables.
@@ -102,9 +94,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
     if (!mounted) return;
     _limpiar();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(esNuevo ? 'Aviso guardado ⏰' : 'Aviso actualizado ⏰'),
-      ),
+      SnackBar(content: Text(esNuevo ? 'Aviso guardado ⏰' : 'Aviso actualizado ⏰')),
     );
   }
 
@@ -141,10 +131,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Así funcionan',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Así funcionan', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(
                     suave
@@ -161,9 +148,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
               ),
             ),
             TituloSeccion(
-              _editandoId == null
-                  ? 'Nuevo recordatorio'
-                  : 'Editar recordatorio',
+              _editandoId == null ? 'Nuevo recordatorio' : 'Editar recordatorio',
             ),
             Tarjeta(
               child: Column(
@@ -195,10 +180,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Días de la semana',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  const Text('Días de la semana', style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 8,
@@ -222,9 +204,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                     value: _activo,
                     onChanged: (v) => setState(() => _activo = v ?? true),
                     title: const Text('Activo'),
-                    subtitle: const Text(
-                      'Si lo desactivas, no aparecerá al abrir la app.',
-                    ),
+                    subtitle: const Text('Si lo desactivas, no aparecerá al abrir la app.'),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -243,10 +223,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                       ),
                       if (_editandoId != null) ...[
                         const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: _limpiar,
-                          child: const Text('Cancelar'),
-                        ),
+                        TextButton(onPressed: _limpiar, child: const Text('Cancelar')),
                       ],
                     ],
                   ),
@@ -275,17 +252,12 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                           children: [
                             Text(
                               r.titulo,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${r.horaTexto} · ${_resumenDias(r.diasSemana)}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: e.onSurfaceVariant,
-                              ),
+                              style: TextStyle(fontSize: 13, color: e.onSurfaceVariant),
                             ),
                             if (!r.activo)
                               Text(
@@ -303,11 +275,7 @@ class _RecordatoriosScreenState extends State<RecordatoriosScreen> {
                       IconButton(
                         onPressed: () => _eliminar(r),
                         tooltip: 'Eliminar aviso',
-                        icon: Icon(
-                          Icons.delete_outline,
-                          size: 20,
-                          color: e.error,
-                        ),
+                        icon: Icon(Icons.delete_outline, size: 20, color: e.error),
                       ),
                     ],
                   ),

@@ -17,8 +17,10 @@ class PdfHistorial {
 
   static Uint8List _ascii(String s) => Uint8List.fromList(s.codeUnits);
 
-  static String _escapar(String s) =>
-      s.replaceAll('\\', r'\\').replaceAll('(', r'\(').replaceAll(')', r'\)');
+  static String _escapar(String s) => s
+      .replaceAll('\\', r'\\')
+      .replaceAll('(', r'\(')
+      .replaceAll(')', r'\)');
 
   /// Devuelve los bytes del PDF. [lineas] son párrafos ya redactados.
   static Future<Uint8List> generar(
@@ -53,8 +55,7 @@ class PdfHistorial {
     }
     cuerpo.add('ET');
 
-    final contenido = (BytesBuilder()..add(_ascii(cuerpo.join('\n'))))
-        .takeBytes();
+    final contenido = (BytesBuilder()..add(_ascii(cuerpo.join('\n')))).takeBytes();
 
     final objetos = <List<int>>[
       _ascii('<< /Type /Catalog /Pages 2 0 R >>'),
@@ -68,10 +69,9 @@ class PdfHistorial {
         '/Encoding /WinAnsiEncoding >>',
       ),
       (BytesBuilder()
-            ..add(_ascii('<< /Length ${contenido.length} >>\nstream\n'))
-            ..add(contenido)
-            ..add(_ascii('\nendstream')))
-          .takeBytes(),
+        ..add(_ascii('<< /Length ${contenido.length} >>\nstream\n'))
+        ..add(contenido)
+        ..add(_ascii('\nendstream'))).takeBytes(),
     ];
 
     final pdf = BytesBuilder()..add(_ascii('%PDF-1.4\n'));

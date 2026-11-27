@@ -17,12 +17,8 @@ class AyudaScreen extends StatelessWidget {
 
   Future<void> _llamar(BuildContext context, RecursoAyuda r) async {
     final numero = r.telefono.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri(
-      scheme: 'tel',
-      path: numero.isEmpty ? r.telefono.trim() : numero,
-    );
-    final aviso =
-        'No pude abrir el teléfono. Puedes copiar el número y marcarlo a mano.';
+    final uri = Uri(scheme: 'tel', path: numero.isEmpty ? r.telefono.trim() : numero);
+    final aviso = 'No pude abrir el teléfono. Puedes copiar el número y marcarlo a mano.';
     try {
       final abierto = await launchUrl(uri);
       if (!abierto && context.mounted) _avisar(context, aviso);
@@ -69,10 +65,7 @@ class AyudaScreen extends StatelessWidget {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Disponible sin conexión',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  Text('Disponible sin conexión', style: TextStyle(fontWeight: FontWeight.w700)),
                   SizedBox(height: 4),
                   Text(
                     'Estos números viven en tu dispositivo: puedes consultarlos aunque '
@@ -93,9 +86,7 @@ class AyudaScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
-                            r.esEmergencia
-                                ? Icons.emergency
-                                : Icons.support_agent,
+                            r.esEmergencia ? Icons.emergency : Icons.support_agent,
                             color: r.esEmergencia ? e.error : e.primary,
                           ),
                           const SizedBox(width: 10),
@@ -105,17 +96,12 @@ class AyudaScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   r.nombre,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   r.descripcion,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: e.onSurfaceVariant,
-                                  ),
+                                  style: TextStyle(fontSize: 13, color: e.onSurfaceVariant),
                                 ),
                               ],
                             ),

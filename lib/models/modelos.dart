@@ -22,7 +22,8 @@ const int edadMaximaObjetivo = 35;
 enum Rol { usuario, administrador }
 
 extension NombreRol on Rol {
-  String get texto => this == Rol.administrador ? 'Administrador' : 'Usuario';
+  String get texto =>
+      this == Rol.administrador ? 'Administrador' : 'Usuario';
 }
 
 // ---------------------------------------------------------------- fechas ---
@@ -208,18 +209,8 @@ class RegistroAnimo {
 }
 
 const List<String> iconosAnimo = ['😞', '😕', '😐', '🙂', '😄'];
-const List<String> nombresAnimo = [
-  'Muy mal',
-  'Mal',
-  'Regular',
-  'Bien',
-  'Muy bien',
-];
-const List<String> iconosEnergia = [
-  'lib/assets/images/Vacia.jpg',
-  'lib/assets/images/Media.jpg',
-  'lib/assets/images/Llena.jpg',
-];
+const List<String> nombresAnimo = ['Muy mal', 'Mal', 'Regular', 'Bien', 'Muy bien'];
+const List<String> iconosEnergia = ['lib/assets/images/Vacia.jpg','lib/assets/images/Media.jpg','lib/assets/images/Llena.jpg',];
 const List<String> nombresEnergia = ['Baja', 'Media', 'Alta'];
 
 // ----------------------------------------------------------------- racha ---
@@ -245,8 +236,10 @@ class Racha {
     'congelamientos': congelamientos,
   };
 
-  factory Racha.fromJson(Map<String, dynamic> j) =>
-      Racha(dias: j['dias'] as int, congelamientos: j['congelamientos'] as int);
+  factory Racha.fromJson(Map<String, dynamic> j) => Racha(
+    dias: j['dias'] as int,
+    congelamientos: j['congelamientos'] as int,
+  );
 }
 
 /// Resultado del cierre automático de uno o más días sin actividad.
@@ -536,6 +529,7 @@ class Publicacion {
 }
 
 // --------------------------------------------------------- sincronización ---
+
 
 /// Cambio local pendiente de subir al servidor (RNF-07). El `id` lo genera
 /// el dispositivo (UUID): si el envío se repite, el servidor lo reconoce y no

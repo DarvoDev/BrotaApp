@@ -86,10 +86,7 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Nivel de esfuerzo',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+            const Text('Nivel de esfuerzo', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
@@ -123,18 +120,12 @@ class _CatalogoScreenState extends State<CatalogoScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        m.titulo,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                      Text(m.titulo, style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text(
                         '${m.duracionMin} min · ${nombresEsfuerzo[m.esfuerzo - 1]} · '
                         '+${m.calcularXP()} Exp',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: e.onSurfaceVariant,
-                        ),
+                        style: TextStyle(fontSize: 13, color: e.onSurfaceVariant),
                       ),
                       const SizedBox(height: 8),
                       Align(

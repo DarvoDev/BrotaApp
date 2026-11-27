@@ -32,14 +32,7 @@ class PerceptronRiesgo {
   /// constancia, ánimo, energía, compañía y actividad hoy bajan el riesgo;
   /// cumplir tarde, gastar escudos y el fin de semana lo suben.
   static const List<double> pesosIniciales = [
-    -1.2,
-    0.4,
-    0.6,
-    0.3,
-    -0.4,
-    -0.8,
-    -0.6,
-    -1.0,
+    -1.2, 0.4, 0.6, 0.3, -0.4, -0.8, -0.6, -1.0,
   ];
   static const double sesgoInicial = 1.4;
 

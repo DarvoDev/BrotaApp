@@ -85,10 +85,7 @@ class _ChequeoAnimoState extends State<_ChequeoAnimo> {
               ],
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Energía',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+            const Text('Energía', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -115,9 +112,7 @@ class _ChequeoAnimoState extends State<_ChequeoAnimo> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _animo != null && _energia != null
-                        ? _guardar
-                        : null,
+                    onPressed: _animo != null && _energia != null ? _guardar : null,
                     child: const Text('Guardar'),
                   ),
                 ),
@@ -170,13 +165,16 @@ class _Opcion extends StatelessWidget {
               child: Column(
                 children: [
                   icono.startsWith('lib/assets/')
-                      ? Image.asset(
-                          icono,
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.contain,
-                        )
-                      : Text(icono, style: const TextStyle(fontSize: 26)),
+                    ? Image.asset(
+                        icono,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.contain,
+                      )
+                    : Text(
+                        icono,
+                        style: const TextStyle(fontSize: 26),
+                      ),
                   const SizedBox(height: 2),
                   Text(
                     nombre,

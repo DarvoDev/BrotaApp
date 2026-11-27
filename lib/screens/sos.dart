@@ -59,14 +59,8 @@ class _SosScreenState extends State<SosScreen>
               : 'Se abrirá el teléfono con el número $telefono.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(accion),
-          ),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(accion)),
         ],
       ),
     );
@@ -81,9 +75,7 @@ class _SosScreenState extends State<SosScreen>
     } catch (_) {
       abierto = false;
     }
-    await estado.activarSOS(
-      mensaje ? 'mensaje a contacto' : 'llamada: $nombre',
-    );
+    await estado.activarSOS(mensaje ? 'mensaje a contacto' : 'llamada: $nombre');
     if (!mounted) return;
     if (abierto) {
       setState(() => _acompanar = true);
@@ -118,20 +110,13 @@ class _SosScreenState extends State<SosScreen>
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('Cerrar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cerrar')),
           FilledButton(
             onPressed: () async {
               final mensajes = ScaffoldMessenger.of(context);
-              await Clipboard.setData(
-                ClipboardData(text: _soloNumero(telefono)),
-              );
+              await Clipboard.setData(ClipboardData(text: _soloNumero(telefono)));
               if (c.mounted) Navigator.pop(c);
-              mensajes.showSnackBar(
-                const SnackBar(content: Text('Número copiado')),
-              );
+              mensajes.showSnackBar(const SnackBar(content: Text('Número copiado')));
             },
             child: const Text('Copiar número'),
           ),
@@ -154,9 +139,7 @@ class _SosScreenState extends State<SosScreen>
     if (!mounted) return;
     FocusScope.of(context).unfocus();
     setState(() => _errorContacto = null);
-    mensajes.showSnackBar(
-      SnackBar(content: Text('$nombre ya es tu contacto de confianza 💚')),
-    );
+    mensajes.showSnackBar(SnackBar(content: Text('$nombre ya es tu contacto de confianza 💚')));
   }
 
   Future<void> _quitarContacto(ContactoConfianza c) async {
@@ -167,14 +150,8 @@ class _SosScreenState extends State<SosScreen>
         title: Text('¿Quitar a ${c.nombre}?'),
         content: const Text('Dejará de aparecer en tu pantalla de S.O.S.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(d, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(d, true),
-            child: const Text('Quitar contacto'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Quitar contacto')),
         ],
       ),
     );
@@ -191,11 +168,7 @@ class _SosScreenState extends State<SosScreen>
       children: [
         Text(
           'S.O.S',
-          style: TextStyle(
-            fontSize: 23,
-            fontWeight: FontWeight.w800,
-            color: e.error,
-          ),
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: e.error),
         ),
         const SizedBox(height: 2),
         Text(
@@ -237,11 +210,7 @@ class _SosScreenState extends State<SosScreen>
               color: r.esEmergencia ? e.error : e.primary,
               titulo: r.nombre,
               detalle: r.descripcion,
-              alLlamar: () => _conectar(
-                nombre: r.nombre,
-                telefono: r.telefono,
-                mensaje: false,
-              ),
+              alLlamar: () => _conectar(nombre: r.nombre, telefono: r.telefono, mensaje: false),
             ),
           ),
         const TituloSeccion('Tus contactos de confianza'),
@@ -261,16 +230,8 @@ class _SosScreenState extends State<SosScreen>
               color: e.primary,
               titulo: c.nombre,
               detalle: c.telefono,
-              alLlamar: () => _conectar(
-                nombre: c.nombre,
-                telefono: c.telefono,
-                mensaje: false,
-              ),
-              alEscribir: () => _conectar(
-                nombre: c.nombre,
-                telefono: c.telefono,
-                mensaje: true,
-              ),
+              alLlamar: () => _conectar(nombre: c.nombre, telefono: c.telefono, mensaje: false),
+              alEscribir: () => _conectar(nombre: c.nombre, telefono: c.telefono, mensaje: true),
               alQuitar: () => _quitarContacto(c),
             ),
           ),
@@ -293,10 +254,7 @@ class _SosScreenState extends State<SosScreen>
               child: TextField(
                 controller: _telefono,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Teléfono',
-                  isDense: true,
-                ),
+                decoration: const InputDecoration(labelText: 'Teléfono', isDense: true),
                 onSubmitted: (_) => _agregarContacto(),
               ),
             ),
@@ -324,16 +282,11 @@ class _SosScreenState extends State<SosScreen>
                   width: 120,
                   height: 120,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: e.primaryContainer,
-                  ),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: e.primaryContainer),
                   child: AnimatedBuilder(
                     animation: _respira,
                     builder: (_, _) => Text(
-                      _respira.status == AnimationStatus.forward
-                          ? 'Inhala…'
-                          : 'Exhala…',
+                      _respira.status == AnimationStatus.forward ? 'Inhala…' : 'Exhala…',
                     ),
                   ),
                 ),
@@ -385,14 +338,8 @@ class _FilaAyuda extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      titulo,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      detalle,
-                      style: TextStyle(fontSize: 13, color: e.onSurfaceVariant),
-                    ),
+                    Text(titulo, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(detalle, style: TextStyle(fontSize: 13, color: e.onSurfaceVariant)),
                   ],
                 ),
               ),
