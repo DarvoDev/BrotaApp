@@ -24,7 +24,8 @@ class InicioScreen extends StatelessWidget {
     final r = estado.completarActividad(a);
     if (r == null) return;
     // Motivación implícita: se cuenta lo que pasó en el jardín.
-    final aviso = avisosCompletar[estado.cumplimientos.length % avisosCompletar.length];
+    final aviso =
+        avisosCompletar[estado.cumplimientos.length % avisosCompletar.length];
     final String texto;
     if (r.subioNivel) {
       texto = 'Brotito creció al nivel ${r.nivel} 🎉';
@@ -49,10 +50,18 @@ class InicioScreen extends StatelessWidget {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('¿Quitar esta tarea?'),
-        content: Text('«${t.titulo}» dejará de aparecer. La Exp que ya ganaste se queda contigo.'),
+        content: Text(
+          '«${t.titulo}» dejará de aparecer. La Exp que ya ganaste se queda contigo.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Quitar tarea')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Quitar tarea'),
+          ),
         ],
       ),
     );
@@ -75,7 +84,10 @@ class InicioScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
       children: [
-        Text(saludo, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
+        Text(
+          saludo,
+          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 2),
         Text(estado.mensajeDelDia, style: TextStyle(color: e.onSurfaceVariant)),
         const SizedBox(height: 14),
@@ -83,15 +95,27 @@ class InicioScreen extends StatelessWidget {
           children: [
             Expanded(
               child: _Dato(
-                icono: '🔥',
-                valor: estado.racha.dias == 1 ? '1 día' : '${estado.racha.dias} días',
+                icono: Image.asset(
+                  'lib/assets/images/Racha.gif',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                ),
+                valor: estado.racha.dias == 1
+                    ? '1 día'
+                    : '${estado.racha.dias} días',
                 detalle: 'de racha',
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _Dato(
-                icono: '🛡️',
+                icono: Image.asset(
+                  'lib/assets/images/Escudo.jpg',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                ),
                 valor: estado.racha.congelamientos == 1
                     ? '1 escudo'
                     : '${estado.racha.congelamientos} escudos',
@@ -196,9 +220,10 @@ class InicioScreen extends StatelessWidget {
               const Divider(height: 24),
               Row(
                 children: [
-                  Text(
-                    emojiMascota(estado.mascota, estado.estadoMascota),
-                    style: const TextStyle(fontSize: 30),
+                  widgetMascota(
+                    estado.mascota,
+                    estado.estadoMascota,
+                    tamano: 30,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -211,7 +236,10 @@ class InicioScreen extends StatelessWidget {
                         ),
                         Text(
                           estado.fraseMascota,
-                          style: TextStyle(color: e.onSurfaceVariant, fontSize: 13.5),
+                          style: TextStyle(
+                            color: e.onSurfaceVariant,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ],
                     ),
@@ -260,7 +288,8 @@ class InicioScreen extends StatelessWidget {
                     for (final t in estado.tareas)
                       _FilaActividad(
                         actividad: t,
-                        detalle: '${t.categoria} · ${nombresEsfuerzo[t.esfuerzo - 1].toLowerCase()}',
+                        detalle:
+                            '${t.categoria} · ${nombresEsfuerzo[t.esfuerzo - 1].toLowerCase()}',
                         hecha: estado.completadaHoy(t),
                         alTocar: () => _alternar(context, estado, t),
                         alEliminar: () => _eliminar(context, estado, t),
@@ -274,9 +303,13 @@ class InicioScreen extends StatelessWidget {
 }
 
 class _Dato extends StatelessWidget {
-  const _Dato({required this.icono, required this.valor, required this.detalle});
+  const _Dato({
+    required this.icono,
+    required this.valor,
+    required this.detalle,
+  });
 
-  final String icono;
+  final Widget icono;
   final String valor;
   final String detalle;
 
@@ -284,13 +317,19 @@ class _Dato extends StatelessWidget {
   Widget build(BuildContext context) => Tarjeta(
     child: Row(
       children: [
-        Text(icono, style: const TextStyle(fontSize: 22)),
+        icono,
         const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(valor, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(
+                valor,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               Text(
                 detalle,
                 style: TextStyle(
@@ -341,7 +380,9 @@ class _AvisoCierre extends StatelessWidget {
           const SizedBox(height: 4),
           Text(texto),
           const SizedBox(height: 4),
-          const Text('Si hoy te nace, abajo hay una misión ligera esperándote.'),
+          const Text(
+            'Si hoy te nace, abajo hay una misión ligera esperándote.',
+          ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -400,7 +441,10 @@ class _FilaActividad extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.only(left: 8, right: alEliminar == null ? 12 : 0),
+              padding: EdgeInsets.only(
+                left: 8,
+                right: alEliminar == null ? 12 : 0,
+              ),
               child: Text(
                 '+${actividad.calcularXP()} Exp',
                 style: TextStyle(fontSize: 13.5, color: e.onSurfaceVariant),
@@ -418,7 +462,6 @@ class _FilaActividad extends StatelessWidget {
     );
   }
 }
-
 
 /// Perceptrón: aviso amable cuando predijo riesgo ALTO para hoy (CU-20).
 class _AvisoRiesgo extends StatelessWidget {
@@ -452,9 +495,9 @@ class _AvisoRiesgo extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RiesgoScreen()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const RiesgoScreen())),
               child: const Text('¿Cómo lo decide?'),
             ),
           ),
@@ -579,7 +622,8 @@ class _CompaneroFantasma extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               [
-                if (senales.length > 1) '${senales.length - 1} persona(s) más también avanzaron hoy.',
+                if (senales.length > 1)
+                  '${senales.length - 1} persona(s) más también avanzaron hoy.',
                 if (s.simulada) 'Señales de ejemplo: sin servidor conectado.',
               ].join(' '),
               style: TextStyle(color: e.onSurfaceVariant, fontSize: 12),

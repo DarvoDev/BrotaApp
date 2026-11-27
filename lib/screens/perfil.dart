@@ -14,8 +14,20 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
-  static const _avatares = ['🌱', '🌿', '🍀', '🌻', '🌸', '🌳'];
-  static const _mascotas = ['🐶', '🐱', '🐰', '🐢'];
+  static const _avatares = [
+    'lib/assets/images/Brote.jpg',
+    'lib/assets/images/Hoja.jpg',
+    'lib/assets/images/Trebol.jpg',
+    'lib/assets/images/Girasol.jpg',
+    'lib/assets/images/Cerezo.jpg',
+    'lib/assets/images/Arbol.jpg',
+  ];
+  static const _mascotas = [
+    'lib/assets/images/Perro.jpg',
+    'lib/assets/images/Gato.jpg',
+    'lib/assets/images/Conejo.jpg',
+    'lib/assets/images/Tortuga.jpg',
+  ];
 
   final _correo = TextEditingController();
   final _password = TextEditingController();
@@ -485,8 +497,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
             children: [
               Row(
                 children: [
-                  Text(estado.avatar, style: const TextStyle(fontSize: 34)),
-                  const SizedBox(width: 10),
+                  estado.avatar.endsWith('.jpg')
+                      ? Image.asset(estado.avatar, width: 90, height: 90)
+                      : Text(
+                          estado.avatar,
+                          style: const TextStyle(fontSize: 34),
+                        ),
                   Expanded(
                     child: Text(
                       cuenta.nombre,
@@ -537,16 +553,16 @@ class _PerfilScreenState extends State<PerfilScreen> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final emoji in _avatares)
-                Semantics(
-                  label: 'Avatar $emoji',
-                  button: true,
-                  selected: _avatar == emoji,
-                  child: ChoiceChip(
-                    label: Text(emoji, style: const TextStyle(fontSize: 21)),
-                    selected: _avatar == emoji,
-                    onSelected: (_) => setState(() => _avatar = emoji),
-                  ),
+              for (final avatar in _avatares)
+                ChoiceChip(
+                  label:
+                      avatar.endsWith('.jpg') ||
+                          avatar.endsWith('.png') ||
+                          avatar.endsWith('.webp')
+                      ? Image.asset(avatar, width: 90, height: 90)
+                      : Text(avatar, style: const TextStyle(fontSize: 21)),
+                  selected: _avatar == avatar,
+                  onSelected: (_) => setState(() => _avatar = avatar),
                 ),
             ],
           ),
@@ -560,18 +576,25 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final emoji in _mascotas)
+                  for (final mascota in _mascotas)
                     Semantics(
-                      label: 'Mascota $emoji',
+                      label: 'Mascota $mascota',
                       button: true,
-                      selected: _mascota == emoji,
+                      selected: _mascota == mascota,
                       child: ChoiceChip(
-                        label: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 21),
-                        ),
-                        selected: _mascota == emoji,
-                        onSelected: (_) => setState(() => _mascota = emoji),
+                        label: mascota.startsWith('lib/assets/')
+                            ? Image.asset(
+                                mascota,
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.contain,
+                              )
+                            : Text(
+                                mascota,
+                                style: const TextStyle(fontSize: 21),
+                              ),
+                        selected: _mascota == mascota,
+                        onSelected: (_) => setState(() => _mascota = mascota),
                       ),
                     ),
                 ],
@@ -635,7 +658,6 @@ class _Dato extends StatelessWidget {
     ),
   );
 }
-
 
 /// Aviso de privacidad simplificado (riesgo «menores de edad»). Se muestra
 /// al registrarse y desde Mi perfil.

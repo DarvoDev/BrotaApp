@@ -55,7 +55,10 @@ class _JardinScreenState extends State<JardinScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
       children: [
-        const Text('Tu jardín', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
+        const Text(
+          'Tu jardín',
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 2),
         Text(
           'Crece contigo, a tu ritmo. Aquí nada se marchita.',
@@ -71,12 +74,23 @@ class _JardinScreenState extends State<JardinScreen> {
                 color: cielo,
                 child: Stack(
                   children: [
-                    const Positioned(left: 28, top: 20, child: Text('☁️', style: TextStyle(fontSize: 46))),
-                    const Positioned(left: 190, top: 64, child: Text('☁️', style: TextStyle(fontSize: 40))),
+                    const Positioned(
+                      left: 28,
+                      top: 20,
+                      child: Text('☁️', style: TextStyle(fontSize: 46)),
+                    ),
+                    const Positioned(
+                      left: 190,
+                      top: 64,
+                      child: Text('☁️', style: TextStyle(fontSize: 40)),
+                    ),
                     Positioned(
                       right: 14,
                       top: 10,
-                      child: Text(dormida ? '🌙' : '☀️', style: const TextStyle(fontSize: 44)),
+                      child: Text(
+                        dormida ? '🌙' : '☀️',
+                        style: const TextStyle(fontSize: 44),
+                      ),
                     ),
                   ],
                 ),
@@ -90,15 +104,22 @@ class _JardinScreenState extends State<JardinScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Text(emojiBrotito(estado.nivel), style: const TextStyle(fontSize: 80)),
+                        Text(
+                          emojiBrotito(estado.nivel),
+                          style: const TextStyle(fontSize: 80),
+                        ),
                         Semantics(
                           button: true,
                           label: 'Acariciar a tu mascota',
                           child: InkWell(
                             customBorder: const CircleBorder(),
                             onTap: () {
-                              final lista = frasesMascota[estado.estadoMascota]!;
-                              setState(() => _texto = lista[Random().nextInt(lista.length)]);
+                              final lista =
+                                  frasesMascota[estado.estadoMascota]!;
+                              setState(
+                                () => _texto =
+                                    lista[Random().nextInt(lista.length)],
+                              );
                             },
                             child: Container(
                               width: 88,
@@ -107,11 +128,15 @@ class _JardinScreenState extends State<JardinScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.white.withValues(alpha: 0.4),
-                                border: Border.all(color: e.onSurface, width: 2),
+                                border: Border.all(
+                                  color: e.onSurface,
+                                  width: 2,
+                                ),
                               ),
-                              child: Text(
-                                emojiMascota(estado.mascota, estado.estadoMascota),
-                                style: const TextStyle(fontSize: 34),
+                              child: widgetMascota(
+                                estado.mascota,
+                                estado.estadoMascota,
+                                tamano: 34,
                               ),
                             ),
                           ),
@@ -125,7 +150,10 @@ class _JardinScreenState extends State<JardinScreen> {
                           spacing: 6,
                           children: [
                             for (final d in decoraciones)
-                              Text(d.emoji, style: const TextStyle(fontSize: 26)),
+                              Text(
+                                d.emoji,
+                                style: const TextStyle(fontSize: 26),
+                              ),
                           ],
                         ),
                       ),
@@ -246,7 +274,13 @@ class _ArticuloTienda extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: comprada
-                ? Text('✓ En tu jardín', style: TextStyle(color: e.primary, fontWeight: FontWeight.w600))
+                ? Text(
+                    '✓ En tu jardín',
+                    style: TextStyle(
+                      color: e.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
                 : FilledButton.tonal(
                     onPressed: alComprar,
                     style: FilledButton.styleFrom(

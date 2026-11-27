@@ -9,7 +9,9 @@ ThemeData temaBrota(Brightness brillo) {
   final tarjeta = oscuro ? const Color(0xFF26312D) : Colors.white;
   final tinta = oscuro ? const Color(0xFFE8EFE9) : const Color(0xFF2D3A35);
   final suave = oscuro ? const Color(0xFFA2B1A9) : const Color(0xFF6B7A73);
-  final principalSuave = oscuro ? const Color(0xFF2F4A3E) : const Color(0xFFDCEFE5);
+  final principalSuave = oscuro
+      ? const Color(0xFF2F4A3E)
+      : const Color(0xFFDCEFE5);
   final linea = oscuro ? const Color(0xFF364540) : const Color(0xFFE4E0D6);
 
   final esquema = ColorScheme(
@@ -140,7 +142,20 @@ String emojiBrotito(int nivel) {
   return '🌸';
 }
 
-const _meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const _meses = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
 
 String fechaCorta(DateTime d) => '${d.day} ${_meses[d.month - 1]} ${d.year}';
 
@@ -150,3 +165,49 @@ String emojiMascota(String mascota, EstadoMascota estado) => switch (estado) {
   EstadoMascota.somnolienta => '$mascota💤',
   EstadoMascota.triste => '$mascota💧',
 };
+
+/// Muestra una mascota guardada como emoji o como imagen de assets.
+Widget widgetMascota(
+  String mascota,
+  EstadoMascota estado, {
+  double tamano = 30,
+}) {
+  final esImagen = mascota.startsWith('lib/assets/');
+
+  if (!esImagen) {
+    return Text(
+      emojiMascota(mascota, estado),
+      style: TextStyle(fontSize: tamano),
+    );
+  }
+
+  final indicador = switch (estado) {
+    EstadoMascota.feliz => null,
+    EstadoMascota.somnolienta => '💤',
+    EstadoMascota.triste => '💧',
+  };
+
+  return SizedBox(
+    width: tamano,
+    height: tamano,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            mascota,
+            width: tamano,
+            height: tamano,
+            fit: BoxFit.contain,
+          ),
+        ),
+        if (indicador != null)
+          Positioned(
+            right: -tamano * 0.12,
+            bottom: -tamano * 0.12,
+            child: Text(indicador, style: TextStyle(fontSize: tamano * 0.38)),
+          ),
+      ],
+    ),
+  );
+}

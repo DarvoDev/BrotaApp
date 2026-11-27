@@ -210,7 +210,7 @@ class RegistroAnimo {
 
 const List<String> iconosAnimo = ['😞', '😕', '😐', '🙂', '😄'];
 const List<String> nombresAnimo = ['Muy mal', 'Mal', 'Regular', 'Bien', 'Muy bien'];
-const List<String> iconosEnergia = ['🪫', '🔋', '⚡'];
+const List<String> iconosEnergia = ['lib/assets/images/Vacia.jpg','lib/assets/images/Media.jpg','lib/assets/images/Llena.jpg',];
 const List<String> nombresEnergia = ['Baja', 'Media', 'Alta'];
 
 // ----------------------------------------------------------------- racha ---

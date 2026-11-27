@@ -164,7 +164,17 @@ class _Opcion extends StatelessWidget {
             child: ExcludeSemantics(
               child: Column(
                 children: [
-                  Text(icono, style: const TextStyle(fontSize: 26)),
+                  icono.startsWith('lib/assets/')
+                    ? Image.asset(
+                        icono,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.contain,
+                      )
+                    : Text(
+                        icono,
+                        style: const TextStyle(fontSize: 26),
+                      ),
                   const SizedBox(height: 2),
                   Text(
                     nombre,
